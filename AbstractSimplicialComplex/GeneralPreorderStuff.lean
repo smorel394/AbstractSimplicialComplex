@@ -11,7 +11,6 @@ import Mathlib.Order.LocallyFinite
 import Mathlib.Order.SuccPred.LinearLocallyFinite
 import Mathlib.Data.Set.Image
 import Mathlib.Order.PFilter
-import Mathlib.Order.Zorn 
 import Mathlib.SetTheory.Ordinal.Basic
 import Mathlib.Data.Real.Basic
 
@@ -28,6 +27,7 @@ variable {α : Type u}
 
 /- Some lemmas for total preorders. -/
 
+/- If ≤ is a total preorder on α, then for all a,b in α, we have a < b, b < a or (a ≤ b and b ≤ a).-/
 lemma TotalPreorder_trichotomy {s : Preorder α} (htot : Total s.le) (a b : α) :
 s.lt a b ∨ s.lt b a ∨ AntisymmRel s.le a b := by
   by_cases hltab : s.lt a b
@@ -40,14 +40,14 @@ s.lt a b ∨ s.lt b a ∨ AntisymmRel s.le a b := by
       | inl hab => exact Or.inr (Or.inr ⟨hab, hltab hab⟩)
       | inr hba => exact Or.inr (Or.inr ⟨hltba hba, hba⟩)
 
-
+/- Trichotomy for a linear order, given as a preorder satisfying IsLinearOrder.-/
 lemma LinearPreorder_trichotomy {s : Preorder α} (hlin : IsLinearOrder α s.le) (a b : α) :
 s.lt a b ∨ s.lt b a ∨ a=b := by
   have halmost := TotalPreorder_trichotomy hlin.toIsTotal.total a b
   rw [@antisymmRel_iff_eq α s.le {refl := s.le_refl} hlin.toIsPartialOrder.toIsAntisymm a b] at halmost 
   exact halmost 
 
-
+/- If ≤ is a total preorder on α and a,b are elements of α, then ¬(a ≤ b) is equivalent to b < a.-/
 lemma TotalPreorder_lt_iff_not_le {s : Preorder α} (htot : Total s.le) {a b : α} : ¬(s.le a b) ↔ s.lt b a := by
   rw [s.lt_iff_le_not_le]
   simp only [iff_and_self]
@@ -58,231 +58,7 @@ lemma TotalPreorder_lt_iff_not_le {s : Preorder α} (htot : Total s.le) {a b : �
 
 
 
-
-/- Let's define a partial order on preorders (we just lift the existing partial order on relations). Maybe this
-is already in mathlib somewhere ? -/
-
-instance instPreorder.le : LE (Preorder α) :=
-  ⟨fun r s =>  ∀ ⦃a b : α⦄, r.le a b → s.le a b⟩
-
-instance Preorder.PartialOrder : PartialOrder (Preorder α) where
-le := (. ≤ .)
-lt r s := r ≤ s ∧ ¬(s ≤ r)
-le_refl r := fun _ _ h => h  
-le_trans r s t := fun hrs hst => fun _ _ h => hst (hrs h) 
-lt_iff_le_not_le _ _ := Iff.rfl 
-le_antisymm r s := fun hrs hsr => by apply Preorder.ext; 
-                                     exact fun _ _ => ⟨fun h => hrs h, fun h => hsr h⟩  
-
-
-
-
-
-namespace Preorder 
-
-/- We give a name to the biggest element of this partial order, which is the trivial preorder on α (i.e. any
-two elements are comparable).-/
-
-def trivialPreorder (α : Type u) : Preorder α where
-le := fun _ _ => True
-lt := fun _ _ => False
-le_refl := fun _ => trivial 
-le_trans := fun _ _ _ _ _ => trivial 
-lt_iff_le_not_le := fun _ _ => by simp
-
-lemma trivialPreorder_is_total (α : Type u) : Total (trivialPreorder α).le := by 
-  intro a b 
-  unfold trivialPreorder 
-  simp only [or_self]
-
-lemma trivialPreorder_is_greatest (s : Preorder α) : s ≤ trivialPreorder α := by
-  intro a b 
-  unfold trivialPreorder
-  simp only [le_Prop_eq, implies_true]
-
-lemma nontrivial_preorder_iff_exists_not_le (s : Preorder α) :
-(s ≠ trivialPreorder α) ↔ (∃ (a b : α), ¬(s.le a b)) := by
-  constructor
-  . contrapose!
-    exact fun hs => by ext a b; exact ⟨(fun _ => by triv), fun _ => hs a b⟩
-  . contrapose!
-    exact fun hs => by rw [hs]; exact fun _ _ => by triv
-
-
-/- If we have preorders r,s such that r ≤ s, then AntisymmRel r ≤ AntisymmRel s.-/
-
-lemma AntisymmRel_monotone {r s : Preorder α} (hrs : r ≤ s) : ∀ {a b : α},
-AntisymmRel r.le a b → AntisymmRel s.le a b :=
-fun hab => ⟨hrs hab.1, hrs hab.2⟩
-
-/- So we get a function from the antisymmetrization of r to that of s by sending x to toAntisymmetrization s.le (ofAntisymmetrization r.le x).-/
-
-noncomputable def AntisymmetrizationtoAntisymmetrization (r s : Preorder α) : 
-@Antisymmetrization α r.le (@instIsPreorderLeToLE α r) → @Antisymmetrization α s.le (@instIsPreorderLeToLE α s) :=
-fun x => @toAntisymmetrization α s.le (@instIsPreorderLeToLE α s) (@ofAntisymmetrization α r.le (@instIsPreorderLeToLE α r) x) 
-
-lemma AntisymmetrizationtoAntisymmetrization_lift {r s : Preorder α} (hrs : r ≤ s) (a : α) :
-@toAntisymmetrization α s.le (@instIsPreorderLeToLE α s) a = AntisymmetrizationtoAntisymmetrization r s (@toAntisymmetrization α r.le 
-(@instIsPreorderLeToLE α r) a) := by
-  unfold AntisymmetrizationtoAntisymmetrization 
-  apply Quotient.sound 
-  apply AntisymmRel_monotone hrs 
-  letI : Preorder α := r 
-  rw [←AntisymmRel.setoid_r] 
-  apply Quotient.exact 
-  change toAntisymmetrization r.le a = toAntisymmetrization r.le (ofAntisymmetrization r.le (toAntisymmetrization r.le a))
-  rw [toAntisymmetrization_ofAntisymmetrization]
-
-lemma AntisymmetrizationtoAntisymmetrization_surjective {r s : Preorder α} (hrs : r ≤ s) : 
-Function.Surjective (AntisymmetrizationtoAntisymmetrization r s) := by
-  intro x 
-  exists @toAntisymmetrization α r.le (@instIsPreorderLeToLE α r) (@ofAntisymmetrization α s.le (@instIsPreorderLeToLE α s) x)
-  rw [←AntisymmetrizationtoAntisymmetrization_lift, toAntisymmetrization_ofAntisymmetrization]
-  exact hrs 
-
-lemma AntisymmetrizationtoAntisymmetrization_monotone {r s : Preorder α} (hrs : r ≤ s) : 
-@Monotone _ _ (@PartialOrder.toPreorder _ (@instPartialOrderAntisymmetrization α r)) 
-(@PartialOrder.toPreorder _ (@instPartialOrderAntisymmetrization α s)) 
-(AntisymmetrizationtoAntisymmetrization r s) := by
-  intro x y hxy 
-  rw [←(@toAntisymmetrization_ofAntisymmetrization α r.le (@instIsPreorderLeToLE α r) x)]
-  rw [←(@toAntisymmetrization_ofAntisymmetrization α r.le (@instIsPreorderLeToLE α r) y)]
-  rw [←(AntisymmetrizationtoAntisymmetrization_lift hrs), ←(AntisymmetrizationtoAntisymmetrization_lift hrs)]
-  rw [toAntisymmetrization_le_toAntisymmetrization_iff]
-  rw [←(@ofAntisymmetrization_le_ofAntisymmetrization_iff α r x y)] at hxy 
-  exact hrs hxy
-  
-
-
-lemma AntisymmetrizationtoAntisymmetrization_image_interval {r s : Preorder α} (hrs : r ≤ s) (hrtot : Total r.le) {a b : α} (hrab : r.le a b) :
-Set.image (AntisymmetrizationtoAntisymmetrization r s) 
-(@Set.Icc _ (@PartialOrder.toPreorder _ (@instPartialOrderAntisymmetrization α r)) 
-(@toAntisymmetrization α r.le (@instIsPreorderLeToLE α r) a) (@toAntisymmetrization α r.le (@instIsPreorderLeToLE α r) b)) =
-(@Set.Icc _ (@PartialOrder.toPreorder _ (@instPartialOrderAntisymmetrization α s)) 
-(@toAntisymmetrization α s.le (@instIsPreorderLeToLE α s) a) (@toAntisymmetrization α s.le (@instIsPreorderLeToLE α s) b)) := by
-  ext z 
-  constructor
-  . simp only [Set.mem_image, ge_iff_le, toAntisymmetrization_le_toAntisymmetrization_iff, gt_iff_lt,
-      toAntisymmetrization_lt_toAntisymmetrization_iff, Set.mem_Icc, forall_exists_index, and_imp]
-    intro t ht hzt 
-    unfold Set.Icc at ht
-    simp only [Set.mem_setOf_eq] at ht
-    rw [←hzt]
-    rw [AntisymmetrizationtoAntisymmetrization_lift hrs a, AntisymmetrizationtoAntisymmetrization_lift hrs b]
-    exact ⟨AntisymmetrizationtoAntisymmetrization_monotone hrs ht.1, AntisymmetrizationtoAntisymmetrization_monotone hrs ht.2⟩ 
-  . simp only [ge_iff_le, toAntisymmetrization_le_toAntisymmetrization_iff, gt_iff_lt,
-      toAntisymmetrization_lt_toAntisymmetrization_iff, Set.mem_Icc, Set.mem_image, and_imp]
-    intro haz hzb
-    set c := @ofAntisymmetrization α s.le (@instIsPreorderLeToLE α s) z with hcdef 
-    have hsac : s.le a c := by 
-      rw [←(toAntisymmetrization_ofAntisymmetrization s.le z), ←hcdef, toAntisymmetrization_le_toAntisymmetrization_iff] at haz
-      exact haz
-    have hscb : s.le c b := by 
-      rw [←(toAntisymmetrization_ofAntisymmetrization s.le z), ←hcdef, toAntisymmetrization_le_toAntisymmetrization_iff] at hzb
-      exact hzb
-    cases (hrtot a c) with 
-    | inr hca => have hsym : AntisymmRel s.le a c := ⟨hsac, hrs hca⟩
-                 exists @toAntisymmetrization α r.le (@instIsPreorderLeToLE α r) a
-                 constructor
-                 . unfold Set.Icc
-                   simp only [Set.mem_setOf_eq]
-                   rw [and_iff_right ((@instPartialOrderAntisymmetrization α r).le_refl _)]
-                   rw [@ toAntisymmetrization_le_toAntisymmetrization_iff α r _ _]
-                   exact hrab
-                 . rw [←(AntisymmetrizationtoAntisymmetrization_lift hrs)]
-                   rw [←(toAntisymmetrization_ofAntisymmetrization s.le z), ←hcdef]
-                   apply Quotient.sound 
-                   rw [←AntisymmRel.setoid_r] at hsym
-                   exact hsym  
-    | inl hac => . cases (hrtot c b) with
-                   | inr hbc => have hsym : AntisymmRel s.le b c := ⟨hrs hbc, hscb⟩
-                                exists @toAntisymmetrization α r.le (@instIsPreorderLeToLE α r) b
-                                constructor
-                                . unfold Set.Icc
-                                  simp only [Set.mem_setOf_eq]
-                                  rw [and_iff_left ((@instPartialOrderAntisymmetrization α r).le_refl _)]
-                                  rw [@ toAntisymmetrization_le_toAntisymmetrization_iff α r _ _]
-                                  exact hrab
-                                . rw [←(AntisymmetrizationtoAntisymmetrization_lift hrs)]
-                                  rw [←(toAntisymmetrization_ofAntisymmetrization s.le z), ←hcdef]
-                                  apply Quotient.sound 
-                                  rw [←AntisymmRel.setoid_r] at hsym
-                                  exact hsym   
-                   | inl hcb => exists @toAntisymmetrization α r.le (@instIsPreorderLeToLE α r) c 
-                                constructor 
-                                . unfold Set.Icc
-                                  simp only [Set.mem_setOf_eq]
-                                  rw [←hcdef]
-                                  rw [@toAntisymmetrization_le_toAntisymmetrization_iff α r, 
-                                      @toAntisymmetrization_le_toAntisymmetrization_iff α r]
-                                  exact ⟨hac, hcb⟩
-                                . rw [←(AntisymmetrizationtoAntisymmetrization_lift hrs), hcdef, toAntisymmetrization_ofAntisymmetrization]
-  
-
-
-/- We prove that total preorders form an upper set. -/
-
-lemma Total_IsUpperSet : IsUpperSet {s : Preorder α | Total s.le} := by
-  intro s t hst hstot a b
-  cases (hstot a b) with
-  | inl hsab => exact Or.inl (hst hsab)
-  | inr hsba => exact Or.inr (hst hsba) 
-
-/-
-/- And so do total essentially locally finite preorders. -/
-
-noncomputable def TotalELPF_IsUpperSet {r s : Preorder α} (htot : Total r.le) (hELF : EssentiallyLocallyFinitePreorder r)
-(hrs : r ≤ s) : EssentiallyLocallyFinitePreorder s := by
-  have hIfin : ∀ (x y : @Antisymmetrization α s.le (@instIsPreorderLeToLE α s)), (@Set.Icc _ 
-       (@PartialOrder.toPreorder _ (@instPartialOrderAntisymmetrization α s)) x y).Finite := by
-    intro x y
-    letI : Preorder α := r
-    cases htot (@ofAntisymmetrization α s.le (@instIsPreorderLeToLE α s) x) (@ofAntisymmetrization α s.le (@instIsPreorderLeToLE α s) y)
-      with
-      | inl  hrxy =>  rw [←Set.finite_coe_iff]
-                      rw [←(@toAntisymmetrization_ofAntisymmetrization α s.le (@instIsPreorderLeToLE α s) x)]
-                      rw [←(@toAntisymmetrization_ofAntisymmetrization α s.le (@instIsPreorderLeToLE α s) y)]
-                      rw [←(AntisymmetrizationtoAntisymmetrization_image_interval hrs)]
-                      have finI : Finite (Set.Icc (@toAntisymmetrization α r.le (@instIsPreorderLeToLE α r) (@ofAntisymmetrization α s.le 
-                         (@instIsPreorderLeToLE α s) x)) (@toAntisymmetrization α r.le (@instIsPreorderLeToLE α r) (@ofAntisymmetrization α s.le 
-                         (@instIsPreorderLeToLE α s) y))) := by
-                        rw [←(@Finset.coe_Icc _ _ hELF)]
-                        rw [Set.finite_coe_iff]
-                        exact Finset.finite_toSet _  
-                      exact @Finite.Set.finite_image _ _ _ _ finI  
-                      exact htot
-                      exact hrxy
-      | inr hryx => by_cases hsxy : s.le (@ofAntisymmetrization α s.le (@instIsPreorderLeToLE α s) x)
-                       (@ofAntisymmetrization α s.le (@instIsPreorderLeToLE α s) y)
-                    . have hsym : AntisymmRel s.le  (@ofAntisymmetrization α s.le (@instIsPreorderLeToLE α s) x)
-                        (@ofAntisymmetrization α s.le (@instIsPreorderLeToLE α s) y) := ⟨hsxy, hrs hryx⟩
-                      have heq : x = y := by 
-                        rw [←(@toAntisymmetrization_ofAntisymmetrization α s.le (@instIsPreorderLeToLE α s) x)]
-                        rw [←(@toAntisymmetrization_ofAntisymmetrization α s.le (@instIsPreorderLeToLE α s) y)]
-                        apply Quotient.sound
-                        exact hsym 
-                      rw [heq]
-                      rw [@Set.Icc_self _ (@instPartialOrderAntisymmetrization α s) y]
-                      simp only [Set.finite_singleton]
-                    . rw [TotalPreorder_lt_iff_not_le (Total_IsUpperSet hrs htot)] at hsxy
-                      rw [@ofAntisymmetrization_lt_ofAntisymmetrization_iff _ s] at hsxy 
-                      have he := @Set.Icc_eq_empty_of_lt _ (@PartialOrder.toPreorder _ 
-                         (@instPartialOrderAntisymmetrization α s)) _ _ hsxy 
-                      rw [he]
-                      exact Set.finite_empty 
-  set finsetIcc := fun x y => Set.Finite.toFinset (hIfin x y) 
---    apply Nonempty.intro 
-  apply LocallyFiniteOrder.ofIcc' _ finsetIcc 
-  intro x y z 
-  rw [Set.Finite.mem_toFinset]
-  simp only [ge_iff_le, gt_iff_lt, Set.mem_Icc]
--/
-
-end Preorder
-
 /- A preorder is called Noetherian if it has no infinite ascending chain.-/
-
-
 def IsNoetherianPoset (α : Type u) [s : Preorder α] : Prop := WellFounded (fun a b => s.lt b a)
  
 
@@ -302,7 +78,7 @@ maximal_nonproper : ∀ ⦃J : Order.Ideal α⦄, I ≤ J → I = J
 
 /- Every order ideal is contained in a maximal nonproper order ideal. -/
 
-
+/- Order ideals form an inductive set (every chain has an upper bound).-/
 lemma OrderIdeals_inductive_set : ∀ (c : Set (Order.Ideal α)), IsChain (fun I J => I ≤ J) c → ∀ (I : Order.Ideal α), 
 I ∈ c → ∃ (ub : Order.Ideal α), ∀ (J : Order.Ideal α), J ∈ c → J ≤ ub := by 
   intro c hchain I hIc 
@@ -342,7 +118,7 @@ I ∈ c → ∃ (ub : Order.Ideal α), ∀ (J : Order.Ideal α), J ∈ c → J �
   exists Order.IsIdeal.toIdeal {IsLowerSet := hJls, Nonempty := hJne, Directed := hJdo}
   
 
-
+/- Every order ideal is contained in a maximal nonproper order ideal.-/
 lemma Order.Ideal.contained_in_maximal_nonproper (I : Order.Ideal α): ∃ (J : Order.Ideal α), Order.Ideal.IsMaximalNonProper J ∧ I ≤ J := by 
   cases @zorn_nonempty_partialOrder₀ (Order.Ideal α) _ Set.univ 
     (fun c _ hchain J hJc => by cases @OrderIdeals_inductive_set α _ c hchain J hJc with 
@@ -351,7 +127,7 @@ lemma Order.Ideal.contained_in_maximal_nonproper (I : Order.Ideal α): ∃ (J : 
                   erw [and_iff_left hJ.2.1, Order.Ideal.IsMaximalNonProper_iff]
                   exact fun K hJK => Eq.symm (hJ.2.2 K (Set.mem_univ _) hJK) 
 
-
+/- If an order ideal has a maximal element, then this element generates the ideal.-/
 lemma Order.Ideal.generated_by_maximal_element (I : Order.Ideal α) {a : α} (ha : a ∈ I ∧ ∀ (b : α), b ∈ I → a ≤ b → b ≤ a) : 
 I = Order.Ideal.principal a := by 
   rw [←Order.Ideal.principal_le_iff] at ha
@@ -361,6 +137,7 @@ I = Order.Ideal.principal a := by
   cases I.directed a (by rw [Order.Ideal.principal_le_iff] at ha; exact ha.1) b hbI with
   | intro c hc => exact le_trans hc.2.2 (ha.2 c hc.1 hc.2.1)
 
+/- If an order filter has a minimal element, then this element generates the filter.-/
 lemma Order.PFilter.generated_by_minimal_element (F : Order.PFilter α) {a : α} (ha : a ∈ F ∧ ∀ (b : α), b ∈ F → b ≤ a → a ≤ b) : 
 F = Order.PFilter.principal a := by 
   suffices hdual : F.dual = @Order.Ideal.principal αᵒᵈ _ a by  
@@ -373,8 +150,7 @@ F = Order.PFilter.principal a := by
 
 
 
-/- The preodered set α is Noetherian if and only if every ideal of α is principal.-/
-
+/- The preodered set α is Noetherian if and only if every order ideal of α is principal.-/
 lemma Noetherian_iff_every_ideal_is_principal_aux (hprin : ∀ (I : Order.Ideal α), ∃ (a : α), I = Order.Ideal.principal a) (s : Set α) 
 (c : Set α) (hcs : c ⊆ s) (hchain : IsChain (fun a b => a ≤ b) c) (a : α) (hac : a ∈ c) : 
 ∃ (m : α), m ∈ s ∧ ∀ (b : α), b ∈ c → b ≤ m := by 
@@ -454,8 +230,8 @@ lemma Noetherian_iff_every_ideal_is_principal : IsNoetherianPoset α  ↔ ∀ (I
 
 end 
 
-/- For a partial order, the order embedding from α to order ideals of α. -/
 
+/- For a partial order, the order embedding from α to order ideals of α (sending an element to the principal ideal it generates). -/
 section 
 variable [PartialOrder α]
 
@@ -473,6 +249,7 @@ end
 
 /- Locally finite and locally finite with bot instance on Finset α.-/
 
+/- First we prove that left-infinite right-closed intervals are finite.-/
 lemma FinsetIic_is_finite (s : Finset α) : (Set.Iic s).Finite := by
   rw [←Set.finite_coe_iff]
   apply Finite.of_injective (fun (t : Set.Iic s) => ({a : s | a.1 ∈ t.1} : Set s))
@@ -492,304 +269,18 @@ lemma FinsetIic_is_finite (s : Finset α) : (Set.Iic s).Finite := by
                        rw [←htu] at hau 
                        exact hau 
 
-
+/-Then that closed intervals are finite.-/
 lemma FinsetIcc_is_finite (s t : Finset α) : (Set.Icc s t).Finite := 
 Set.Finite.subset (FinsetIic_is_finite t) (by rw [Set.subset_def]; simp only [ge_iff_le, gt_iff_lt, Set.mem_Icc, Set.mem_Iic, and_imp, imp_self, 
 implies_true, Subtype.forall, forall_const])
 
+/- LocallyFiniteOrderBot instance on Finset α.-/
 noncomputable instance FinsetLFB : LocallyFiniteOrderBot (Finset α) :=
 LocallyFiniteOrderTop.ofIic (Finset α) (fun s => Set.Finite.toFinset (FinsetIic_is_finite s)) 
   (fun a s => by simp only [Set.Finite.mem_toFinset, Set.mem_Iic]) 
 
+/- LocallyFiniteOrder instance on Finset α.-/
 noncomputable instance FacePosetLF : LocallyFiniteOrder (Finset α) :=
 LocallyFiniteOrder.ofIcc (Finset α) (fun s t => Set.Finite.toFinset (FinsetIcc_is_finite s t)) 
   (fun a s t => by simp only [ge_iff_le, gt_iff_lt, Set.Finite.mem_toFinset, Set.mem_Icc]) 
 
-
-/- An example of total preorder: if a is an element of α, we have a preorder that makes a smaller than all other elements, and that makes
-all other elements equivalent. This preorder is total, and it is nontrivial if α has an element b such that b ≠ a. (It's an "if and only", of
-course, as every preorder on a singleton is trivial.)-/
-
-def twoStepPreorder (a : α) : Preorder α where 
-le x y := by by_cases x = a
-             . exact True 
-             . by_cases y = a 
-               . exact False 
-               . exact True  
-le_refl x := by by_cases hx : x = a 
-                . simp only [hx, dite_eq_ite]
-                . simp only [hx, dite_eq_ite]
-le_trans x y z hxy hyz := by by_cases hx : x = a 
-                             . simp only [hx, dite_eq_ite, ite_true] at hxy ⊢
-                             . simp only [hx, dite_eq_ite, ite_false] at hxy⊢
-                               by_cases hy : y = a 
-                               . simp only [hy, ite_true] at hxy
-                               . simp only [hy, dite_eq_ite, ite_false] at hyz
-                                 exact hyz 
---lt := sorry 
---lt_iff_le_not_le := sorry 
-
-lemma twoStepPreorder_smallest (a b : α) : (twoStepPreorder a).le a b := by 
-  unfold twoStepPreorder
-  simp only [dite_eq_ite, ite_true]
-
-lemma twoStepPreorder_greatest {a b : α} (hab : a ≠ b) (c : α) : (twoStepPreorder a).le c b := by 
-  unfold twoStepPreorder 
-  by_cases hc : c = a 
-  . simp only [dite_eq_ite, hc, ite_true]
-  . simp only [dite_eq_ite, hc, Ne.symm hab, ite_false, ite_self]
-
-lemma twoStepPreorder_IsTotal (a : α) : Total (twoStepPreorder a).le := by 
-  unfold twoStepPreorder 
-  intro x y 
-  by_cases hx : x = a 
-  . simp only [dite_eq_ite, hx, ite_true, true_or]
-  . simp only [dite_eq_ite, hx, ite_false, ite_self, or_true]
-
-open Preorder
-
-lemma twoStepPreorder_nontrivial {a b : α} (hab : a ≠ b) : twoStepPreorder a ≠ trivialPreorder α := by 
-  rw [nontrivial_preorder_iff_exists_not_le]
-  exists b; exists a 
-  unfold twoStepPreorder 
-  simp only [dite_eq_ite, Ne.symm hab, ite_true, ite_false, not_false_eq_true]
-
-
-
-
-/- The antisymmetrization of the two-step preorder is a fintype, and it has cardinality 2 if α has at least two elements.-/
-
-def twoStepPreorder_singleton_toAntisymmetrization (a : α) : 
-({a} : Finset α) → Antisymmetrization α (twoStepPreorder a).le := 
-fun _ => toAntisymmetrization (twoStepPreorder a).le a 
-  
-def twoStepPreorder_nonsingleton_toAntisymmetrization (a b : α) : 
-Option ({a} : Finset α) → Antisymmetrization α (twoStepPreorder a).le :=  
-fun x => by match x with 
-            | none => exact toAntisymmetrization (twoStepPreorder a).le b 
-            | some _ => exact toAntisymmetrization (twoStepPreorder a).le a  
-
-lemma twoStepPreorder_singleton_toAntisymmetrization_surjective (a : α) (hsin : ∀ (b : α), b = a) :
-Function.Surjective (twoStepPreorder_singleton_toAntisymmetrization a) := by 
-  intro x 
-  simp only [Subtype.exists, Finset.mem_singleton]
-  exists a 
-  exists rfl 
-  rw [←(toAntisymmetrization_ofAntisymmetrization  (twoStepPreorder a).le x)]
-  unfold twoStepPreorder_singleton_toAntisymmetrization 
-  apply Quotient.sound
-  change AntisymmRel _ a _ 
-  unfold AntisymmRel 
-  rw [hsin (ofAntisymmetrization (twoStepPreorder a).le x)]
-  simp only [and_self]
-  exact (twoStepPreorder a).le_refl _ 
-
-
-lemma twoStepPreorder_nonsingleton_toAntisymmetrization_surjective {a b : α} (hab : a ≠ b) :
-Function.Surjective (twoStepPreorder_nonsingleton_toAntisymmetrization a b) := by 
-  intro x 
-  by_cases heq : AntisymmRel (twoStepPreorder a).le a (ofAntisymmetrization (twoStepPreorder a).le x)
-  . exists (some ⟨a, Finset.mem_singleton_self a⟩)
-    rw [←(toAntisymmetrization_ofAntisymmetrization  (twoStepPreorder a).le x)]
-    unfold twoStepPreorder_nonsingleton_toAntisymmetrization
-    simp only 
-    apply Quotient.sound 
-    exact heq 
-  . exists none 
-    unfold twoStepPreorder_nonsingleton_toAntisymmetrization 
-    simp only 
-    rw [←(toAntisymmetrization_ofAntisymmetrization  (twoStepPreorder a).le x)]
-    apply Quotient.sound 
-    change AntisymmRel _ b _
-    constructor 
-    . have hne : a ≠ ofAntisymmetrization (twoStepPreorder a).le x  := by 
-        by_contra habs 
-        rw [←habs] at heq 
-        exact heq (@antisymmRel_refl _ (twoStepPreorder a).le {refl := (twoStepPreorder a).le_refl} a)    
-      exact twoStepPreorder_greatest hne _   
-    . exact twoStepPreorder_greatest hab _ 
-    
-
-
-lemma twoStepPreorder_Antisymmetrization_finite (a : α) :
-Fintype (Antisymmetrization α (twoStepPreorder a).le) := by 
-  refine @Fintype.ofFinite _ ?_
-  by_cases hsin : ∀ (b : α), b = a 
-  . exact Finite.of_surjective (twoStepPreorder_singleton_toAntisymmetrization a) (twoStepPreorder_singleton_toAntisymmetrization_surjective a hsin)
-  . push_neg at hsin 
-    match hsin with 
-    | ⟨b, hb⟩ => exact Finite.of_surjective (twoStepPreorder_nonsingleton_toAntisymmetrization a b)
-                  (twoStepPreorder_nonsingleton_toAntisymmetrization_surjective (Ne.symm hb)) 
-
-
-lemma twoStepPreorder_Antisymmetrization.card {a b : α} (hab : a ≠ b) : @Fintype.card (Antisymmetrization α (twoStepPreorder a).le)
-(twoStepPreorder_Antisymmetrization_finite a) = 2 := by 
-  apply le_antisymm 
-  . refine Nat.le_trans (@Fintype.card_le_of_surjective _ _ _ (twoStepPreorder_Antisymmetrization_finite a) 
-      (twoStepPreorder_nonsingleton_toAntisymmetrization a b) (twoStepPreorder_nonsingleton_toAntisymmetrization_surjective hab)) ?_
-    rw [Fintype.card_option]
-    simp only [Finset.mem_singleton, Fintype.card_ofSubsingleton, _root_.le_refl] 
-  . rw [Nat.succ_le_iff, @Fintype.one_lt_card_iff _ (twoStepPreorder_Antisymmetrization_finite a)]
-    exists (toAntisymmetrization (twoStepPreorder a).le a)
-    exists (toAntisymmetrization (twoStepPreorder a).le b)
-    by_contra habs 
-    have habs := Quotient.exact habs 
-    change (twoStepPreorder a).le _ _ ∧ (twoStepPreorder a).le _ _  at habs 
-    unfold twoStepPreorder at habs 
-    simp only [dite_eq_ite, Ne.symm hab, ite_false, ite_self, ite_true, and_false] at habs 
-
-
-
-
-#exit 
-
-/- This constructs a linear order on any type, using an embedding into cardinals (similar to the construction of the well-order in
-https://leanprover-community.github.io/mathlib4_docs/Mathlib/SetTheory/Ordinal/Basic.html#WellOrderingRel)-/
-
-
-variable (α : Type u)
-
-noncomputable def ArbitraryLinearOrder : LinearOrder α := 
-LinearOrder.lift' (embeddingToCardinal).toFun (embeddingToCardinal).inj' 
-
-
-
-
-/- For s a preorder, we have a SuccOrder on s if and only if we have one on the antisymmetrization of s. (Same for PredOrders, but
-I'm not sure I have the courage to do battle with duality.)-/
-
-noncomputable def SuccOrdertoAntisymmetrization {s : Preorder α} (hsucc : @SuccOrder α s) : @SuccOrder (Antisymmetrization α s.le)
-(@PartialOrder.toPreorder _ (@instPartialOrderAntisymmetrization α s)) 
-where
-succ := fun x => toAntisymmetrization s.le (hsucc.succ (ofAntisymmetrization s.le x))
-le_succ := fun x => by rw [←(toAntisymmetrization_ofAntisymmetrization s.le x), toAntisymmetrization_le_toAntisymmetrization_iff]
-                       rw [toAntisymmetrization_ofAntisymmetrization]
-                       exact hsucc.le_succ _ 
-max_of_succ_le := fun hx => by rename_i x
-                               intro y hyx
-                               rw [←(toAntisymmetrization_ofAntisymmetrization s.le x)] at hyx hx ⊢ 
-                               rw [←(toAntisymmetrization_ofAntisymmetrization s.le y)] at hyx ⊢
-                               rw [toAntisymmetrization_le_toAntisymmetrization_iff] at hyx hx ⊢
-                               rw [toAntisymmetrization_ofAntisymmetrization] at hx 
-                               exact hsucc.max_of_succ_le hx hyx 
-succ_le_of_lt := fun hxy => by rename_i x y
-                               rw [←(toAntisymmetrization_ofAntisymmetrization s.le x), ←(toAntisymmetrization_ofAntisymmetrization s.le y)]
-                                 at hxy ⊢
-                               rw [toAntisymmetrization_le_toAntisymmetrization_iff]
-                               rw [toAntisymmetrization_lt_toAntisymmetrization_iff] at hxy
-                               rw [toAntisymmetrization_ofAntisymmetrization]
-                               exact hsucc.succ_le_of_lt hxy
-le_of_lt_succ := fun hxy => by rename_i x y 
-                               rw [←(toAntisymmetrization_ofAntisymmetrization s.le x)] at hxy ⊢ 
-                               rw [←(toAntisymmetrization_ofAntisymmetrization s.le y)]
-                               rw [toAntisymmetrization_le_toAntisymmetrization_iff]  
-                               rw [toAntisymmetrization_lt_toAntisymmetrization_iff] at hxy 
-                               exact hsucc.le_of_lt_succ hxy 
-
-noncomputable def SuccOrderofAntisymmetrization {s : Preorder α} (hsucc : @SuccOrder (Antisymmetrization α s.le)
-(@PartialOrder.toPreorder _ (@instPartialOrderAntisymmetrization α s))) : @SuccOrder α s where 
-succ := fun a => ofAntisymmetrization s.le (hsucc.succ (toAntisymmetrization s.le a))
-le_succ := fun a => by rw [←(toAntisymmetrization_le_toAntisymmetrization_iff), toAntisymmetrization_ofAntisymmetrization]
-                       exact hsucc.le_succ (toAntisymmetrization s.le a) 
-max_of_succ_le := fun ha => by intro b hba 
-                               rw [←(toAntisymmetrization_le_toAntisymmetrization_iff)] at hba ha ⊢ 
-                               rw [toAntisymmetrization_ofAntisymmetrization] at ha 
-                               exact hsucc.max_of_succ_le ha hba  
-succ_le_of_lt := fun hab => by rw [←toAntisymmetrization_le_toAntisymmetrization_iff]
-                               rw [←toAntisymmetrization_lt_toAntisymmetrization_iff] at hab 
-                               rw [toAntisymmetrization_ofAntisymmetrization]
-                               exact hsucc.succ_le_of_lt hab 
-le_of_lt_succ := fun hab => by rw [←toAntisymmetrization_le_toAntisymmetrization_iff]
-                               rw [←toAntisymmetrization_lt_toAntisymmetrization_iff] at hab
-                               rw [toAntisymmetrization_ofAntisymmetrization] at hab 
-                               exact hsucc.le_of_lt_succ hab 
-
-/- We define essentially locally finite preorders; these are preorders whose antisymmetrization is locally finite.-/
-
-def EssentiallyLocallyFinitePreorder (s : Preorder α) := @LocallyFiniteOrder _ 
-(@PartialOrder.toPreorder _ (@instPartialOrderAntisymmetrization α s))
-
-/- For any preorder s,  "locally finite" implies "essentially locally finite" (Of course, if s is a partial order then they are
-equivalent. )-/
-
-noncomputable def EssentiallyLocallyFinite_ofLocallyFinite {s : Preorder α} (hLF : @LocallyFiniteOrder α s) : 
-EssentiallyLocallyFinitePreorder s := by
-  letI : Preorder α := s 
-  have hIfin : ∀ (x y : Antisymmetrization α s.le), (Set.Icc x y).Finite := by
-    intro x y
-    have himage : Set.Icc x y = Set.image (toAntisymmetrization s.le) (Set.Icc (ofAntisymmetrization s.le x) (ofAntisymmetrization s.le y)) := by
-      ext z 
-      simp only [ge_iff_le, gt_iff_lt, Set.mem_Icc, ofAntisymmetrization_le_ofAntisymmetrization_iff,
-          ofAntisymmetrization_lt_ofAntisymmetrization_iff, Set.mem_image]
-      constructor
-      . intro hz 
-        exists ofAntisymmetrization s.le z 
-        rw [ofAntisymmetrization_le_ofAntisymmetrization_iff, ofAntisymmetrization_le_ofAntisymmetrization_iff,
-             toAntisymmetrization_ofAntisymmetrization]
-        exact ⟨hz, by rfl⟩
-      . intro hz
-        match hz with 
-        | ⟨a,⟨⟨hxa, hay⟩, haz⟩⟩ => rw [←toAntisymmetrization_le_toAntisymmetrization_iff, toAntisymmetrization_ofAntisymmetrization,
-                                        haz] at hxa hay  
-                                   exact ⟨hxa, hay⟩
-    rw [himage, ←Set.finite_coe_iff]
-    apply Finite.Set.finite_image _ (toAntisymmetrization s.le) 
-  set finsetIcc := fun x y => Set.Finite.toFinset (hIfin x y) 
-  unfold EssentiallyLocallyFinitePreorder
-  apply LocallyFiniteOrder.ofIcc' _ finsetIcc 
-  intro x y z 
-  simp only [ge_iff_le, gt_iff_lt, Set.Finite.mem_toFinset, Set.mem_Icc]
-
-
-
-/- A total essentially locally finite preorder is a SuccOrder (and also a PredOrder, but I didn't write it). This us because the
-antisymmetrization partial order is a linear locally finite order. -/
-
-noncomputable def TotalELFP_SuccOrder {s : Preorder α} (htot : Total s.le) (ELPF : EssentiallyLocallyFinitePreorder s) : @SuccOrder α s := 
-SuccOrderofAntisymmetrization (@LinearLocallyFiniteOrder.instSuccOrderToPreorderToPartialOrderToSemilatticeInfToLatticeInstDistribLattice _ 
-  (@instLinearOrderAntisymmetrizationLeToLEInstIsPreorderLeToLE α s _ _ {total := htot}) ELPF) 
-
-
-/- Essentially locally finite preorders are also (dually) well-founded on bounded intervals. I could deduce this from the fact that the
-antisymmetrization is, but I don't want to mess around showing that the antisymmetrization of an interval is an interval in the
-antisymmetrization and playing with saturations, so I'll just do it directly using the "existence of max" criterion. -/
-
-lemma ELFP_is_locally_WellFounded {s : Preorder α} (ELPF : EssentiallyLocallyFinitePreorder s) (a b : α) :
-∀ (E : Set α), Set.Nonempty E → (∀ (c : α), c ∈ E → (s.le a c ∧ s.le c b)) → ∃ (m : α), m ∈ E ∧ ∀ (c : α), c ∈ E → ¬(s.lt m c) := by
-  intro E hEne hEboun 
-  have hfin : Set.Finite (Set.image (toAntisymmetrization s.le) E) := by  
-    set I := ELPF.finsetIcc (toAntisymmetrization s.le a) (toAntisymmetrization s.le b) with hIdef 
-    have hinc : Set.image (toAntisymmetrization s.le) E ⊆ ↑I := by rw [Set.subset_def]
-                                                                   intro x hx 
-                                                                   rw [hIdef]
-                                                                   rw [Finset.mem_coe, ELPF.finset_mem_Icc]
-                                                                   simp only [Set.mem_image] at hx
-                                                                   cases hx with
-                                                                   | intro c hc => rw [←hc.2, toAntisymmetrization_le_toAntisymmetrization_iff,
-                                                                                        toAntisymmetrization_le_toAntisymmetrization_iff]
-                                                                                   exact hEboun c hc.1
-    refine Finite.of_injective (fun x => (⟨x.1, hinc x.2⟩ : ↑I)) (fun x y hxy => by simp only [Subtype.mk.injEq] at hxy
-                                                                                    rw [Subtype.mk.injEq]
-                                                                                    exact hxy)
-  have hne : Nonempty (Set.image (toAntisymmetrization s.le) E) := by
-    rw [Set.nonempty_coe_sort, Set.nonempty_image_iff] 
-    exact hEne 
-  set x:= WellFounded.min ((@Finite.to_wellFoundedGT _ hfin (@Subtype.preorder _ (@PartialOrder.toPreorder _ 
-     (@instPartialOrderAntisymmetrizationLeToLEInstIsPreorderLeToLE α s)) _))).wf Set.univ (@Set.univ_nonempty _ hne)
-  have hxE := x.2 
-  simp only [Set.mem_image] at hxE
-  cases hxE with
-  | intro c hc => exists c 
-                  constructor
-                  . exact hc.1
-                  . exact fun d hdE => by rw [←toAntisymmetrization_lt_toAntisymmetrization_iff]
-                                          have hdE' : toAntisymmetrization s.le d ∈ Set.image (toAntisymmetrization s.le) E := by
-                                            simp only [Set.mem_image]
-                                            exists d 
-                                          rw [hc.2] 
-                                          have almost:= @WellFounded.not_lt_min _ _ ((@Finite.to_wellFoundedGT _ hfin (@Subtype.preorder _ 
-                                            (@PartialOrder.toPreorder _ (@instPartialOrderAntisymmetrizationLeToLEInstIsPreorderLeToLE α s)) 
-                                            _))).wf Set.univ (@Set.univ_nonempty _ hne) ⟨toAntisymmetrization s.le d, hdE'⟩ (Set.mem_univ _) 
-                                          rw [gt_iff_lt, ←Subtype.coe_lt_coe] at almost 
-                                          simp only [gt_iff_lt] at almost   
-                                          exact almost 
