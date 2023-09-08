@@ -22,14 +22,30 @@ open Classical
 /-!
 # Abstract Simplicial Complex
 
-In this file, we define abstract simplicial complexes over a vertex set `V`. An abstract simplicial
-complex is collection of simplices which is closed by inclusion (of vertices).
+In this file, we define abstract simplicial complexes over a type `α`. An abstract simplicial
+complex is collection of nonempty finsets of α (called "faces") which is closed under inclusion.
 
-We model them as downwards-closed collections of finite subsets of `V`.
+We do not require all elements of α to be vertices, because it is convenient in examples to be
+able to define an abstract simplicial complex on a bigger set. With out definition of a
+morphism of simplicial complexes, every abstract simplicial complex K on a type α is isomorphic
+to an abstract simplicial complex on the type of vertices of K.
+
+## Simplicial maps
+
+We chose to model a simplicial map from K to L as a pair of maps: "vertex_map" from the vertices
+of K to vertices of L, and "face_map" from faces of K to faces of K. These maps must satisfy two
+obvious compatibility conditions. Of course the map on vertices determines the map of faces, but
+this made the manipulation of the category of simplicial complexes simpler.
+
+We also do not require vertex_map to be define at elements of α (if K is a simplicial complex on α)
+that are not vertices. This avoids a localization step when we define the category of simplicial
+complexes (i.e. we do not need to identify two simplicial maps that agree on vertices), and it
+also avoids trouble with the empty simplicial complex.
+
 
 ## Main definitions
 
-* `AbstractSimplicialComplex V`: An abstract simplicial complex with vertices in `V`.
+* `AbstractSimplicialComplex α`: An abstract simplicial complex with vertices in `α`.
 * `AbstractSimplicialComplex.vertices`: The zero dimensional faces of a simplicial complex.
 * `AbstractSimplicialComplex.facets`: The maximal faces of a simplicial complex.
 * `SimplicialMap K L`: Simplicial maps from a simplicial complex `K` to another
@@ -49,29 +65,28 @@ We model them as downwards-closed collections of finite subsets of `V`.
 
 set_option autoImplicit false
 
-
 universe u v w
 
 
 @[ext]
-structure AbstractSimplicialComplex (V : Type u) :=
-(faces : Set (Finset V))
-(nonempty_of_mem : ∀ {s : Finset V}, s ∈ faces → s.Nonempty)
-(down_closed : ∀ {s t : Finset V}, s ∈ faces → t ⊆ s → t.Nonempty → t ∈ faces)
+structure AbstractSimplicialComplex (α : Type u) :=
+(faces : Set (Finset α))
+(nonempty_of_mem : ∀ {s : Finset α}, s ∈ faces → s.Nonempty)
+(down_closed : ∀ {s t : Finset α}, s ∈ faces → t ⊆ s → t.Nonempty → t ∈ faces)
 
 
 namespace AbstractSimplicialComplex
 
-variable {V : Type u}
+variable {α : Type u}
 
-instance : Membership (Finset V) (AbstractSimplicialComplex V) := ⟨fun s K => s ∈ K.faces⟩ 
+instance : Membership (Finset α) (AbstractSimplicialComplex α) := ⟨fun s K => s ∈ K.faces⟩ 
 
 
 /-- Construct an abstract simplicial complex by removing the empty face for you. -/
 @[simps!] def of_erase
-  (faces : Set (Finset V))
-  (down_closed : ∀ {s t : Finset V}, s ∈ faces → t ⊆ s → t ∈ faces) :
-  AbstractSimplicialComplex V :=
+  (faces : Set (Finset α))
+  (down_closed : ∀ {s t : Finset α}, s ∈ faces → t ⊆ s → t ∈ faces) :
+  AbstractSimplicialComplex α :=
 { faces := faces \ {∅},
   nonempty_of_mem := fun h => by simp only [Set.mem_diff, Set.mem_singleton_iff] at h;
                                  rw [←ne_eq, ←Finset.nonempty_iff_ne_empty] at h
@@ -81,11 +96,11 @@ instance : Membership (Finset V) (AbstractSimplicialComplex V) := ⟨fun s K => 
 
 
 /-- Construct an abstract simplicial complex as a subset of a given abstract simplicial complex. -/
-@[simps] def of_subcomplex (K : AbstractSimplicialComplex V)
-  (faces : Set (Finset V))
+@[simps] def of_subcomplex (K : AbstractSimplicialComplex α)
+  (faces : Set (Finset α))
   (subset : faces ⊆ K.faces)
   (down_closed : ∀ {s t}, s ∈ faces → t ⊆ s → t.Nonempty → t ∈ faces) :
-  AbstractSimplicialComplex V :=
+  AbstractSimplicialComplex α :=
 { faces := faces
   nonempty_of_mem := fun h => K.nonempty_of_mem (subset h)
   down_closed := fun hs hts ht => down_closed hs hts ht}
@@ -93,19 +108,19 @@ instance : Membership (Finset V) (AbstractSimplicialComplex V) := ⟨fun s K => 
 
 /- Faces have nonzero cardinality.-/
 
-lemma face_card_nonzero {K : AbstractSimplicialComplex V} {s : Finset V} (hsf : s ∈ K.faces) : Finset.card s ≠ 0 := by 
+lemma face_card_nonzero {K : AbstractSimplicialComplex α} {s : Finset α} (hsf : s ∈ K.faces) : Finset.card s ≠ 0 := by 
   cases K.nonempty_of_mem hsf with
   |intro _ has => exact Finset.card_ne_zero_of_mem has 
 
 
 
-/- Vertices are the element a of V such that {a} is a face.-/
+/- Vertices are the element a of α such that {a} is a face.-/
 
-def vertices (K : AbstractSimplicialComplex V) : Set V := {v : V | {v} ∈ K}
+def vertices (K : AbstractSimplicialComplex α) : Set α := {v : α | {v} ∈ K}
 
-lemma mem_vertices (K : AbstractSimplicialComplex V) (v : V) : v ∈ K.vertices ↔ {v} ∈ K := Iff.rfl
+lemma mem_vertices (K : AbstractSimplicialComplex α) (v : α) : v ∈ K.vertices ↔ {v} ∈ K := Iff.rfl
 
-lemma vertices_eq (K : AbstractSimplicialComplex V) : K.vertices = ⋃ s ∈ K.faces, (s : Set V) := by
+lemma vertices_eq (K : AbstractSimplicialComplex α) : K.vertices = ⋃ s ∈ K.faces, (s : Set α) := by
   ext v
   constructor
   . intro hv
@@ -120,7 +135,7 @@ lemma vertices_eq (K : AbstractSimplicialComplex V) : K.vertices = ⋃ s ∈ K.f
     | ⟨s,hsf,hsv⟩ => exact K.down_closed hsf (Finset.singleton_subset_iff.mpr hsv) (Finset.singleton_nonempty v) 
 
 
-lemma mem_vertices_iff (K : AbstractSimplicialComplex V) (x : V) : x ∈ K.vertices ↔ ∃ (s : K.faces), x ∈ s.1 := by
+lemma mem_vertices_iff (K : AbstractSimplicialComplex α) (x : α) : x ∈ K.vertices ↔ ∃ (s : K.faces), x ∈ s.1 := by
   rw [mem_vertices]
   constructor
   . exact fun hx => by simp only [Subtype.exists, exists_prop]; exists {x}; exact ⟨hx, Finset.mem_singleton.mpr (Eq.refl x)⟩
@@ -130,29 +145,29 @@ lemma mem_vertices_iff (K : AbstractSimplicialComplex V) (x : V) : x ∈ K.verti
 
 
 
-lemma face_subset_vertices (K : AbstractSimplicialComplex V) (s : K.faces) : ↑s.1 ⊆ K.vertices := by 
+lemma face_subset_vertices (K : AbstractSimplicialComplex α) (s : K.faces) : ↑s.1 ⊆ K.vertices := by 
   rw [vertices_eq]
-  have h := Set.subset_iUnion (fun (t : K.faces) => (t : Set V)) s 
+  have h := Set.subset_iUnion (fun (t : K.faces) => (t : Set α)) s 
   simp only [Set.iUnion_coe_set] at h
   exact h 
 
-noncomputable def face_to_finset_vertices {K : AbstractSimplicialComplex V} (s : K.faces) : Finset (K.vertices) := 
+noncomputable def face_to_finset_vertices {K : AbstractSimplicialComplex α} (s : K.faces) : Finset (K.vertices) := 
 s.1.subtype (fun a => a ∈ K.vertices)
 
-lemma face_to_finset_vertices_mem {K : AbstractSimplicialComplex V} (s : K.faces) (a : V) :
+lemma face_to_finset_vertices_mem {K : AbstractSimplicialComplex α} (s : K.faces) (a : α) :
 (∃ (hav : a ∈ K.vertices), ⟨a, hav⟩ ∈ (face_to_finset_vertices s)) ↔ a ∈ s.1 := by 
   unfold face_to_finset_vertices
   simp only [Finset.mem_subtype, exists_prop, and_iff_right_iff_imp]
   exact fun has => by rw [mem_vertices_iff]; exists s 
 
-lemma face_to_finset_vertices_mem' {K : AbstractSimplicialComplex V} (s : K.faces) {a : V} (hav : a ∈ K.vertices) :
+lemma face_to_finset_vertices_mem' {K : AbstractSimplicialComplex α} (s : K.faces) {a : α} (hav : a ∈ K.vertices) :
 ⟨a, hav⟩ ∈ (face_to_finset_vertices s) ↔ a ∈ s.1 := by 
   unfold face_to_finset_vertices
   simp only [Finset.mem_subtype]
 
 
 
-lemma face_to_finset_vertices_eq {K : AbstractSimplicialComplex V} (s : K.faces) :
+lemma face_to_finset_vertices_eq {K : AbstractSimplicialComplex α} (s : K.faces) :
 s.1 = Finset.image (fun a => ↑a) (face_to_finset_vertices s) := by 
   ext a 
   simp only [Finset.mem_image, Subtype.exists, exists_and_right, exists_eq_right]
@@ -161,13 +176,13 @@ s.1 = Finset.image (fun a => ↑a) (face_to_finset_vertices s) := by
 
 /- Facets. -/
 
-def facets (K : AbstractSimplicialComplex V) : Set (Finset V) := {s ∈ K.faces | ∀ ⦃t⦄, t ∈ K.faces → s ⊆ t → s = t}
+def facets (K : AbstractSimplicialComplex α) : Set (Finset α) := {s ∈ K.faces | ∀ ⦃t⦄, t ∈ K.faces → s ⊆ t → s = t}
 
-lemma mem_facets_iff (K : AbstractSimplicialComplex V) (s : Finset V) : s ∈ K.facets ↔ s ∈ K.faces ∧ ∀ ⦃t : Finset V⦄, t ∈ K.faces → s ≤ t → s =t := by 
+lemma mem_facets_iff (K : AbstractSimplicialComplex α) (s : Finset α) : s ∈ K.facets ↔ s ∈ K.faces ∧ ∀ ⦃t : Finset α⦄, t ∈ K.faces → s ≤ t → s =t := by 
   unfold facets 
   simp only [Set.mem_setOf_eq, Finset.le_eq_subset]
 
-lemma facets_subset {K : AbstractSimplicialComplex V} {s : Finset V} (hsf : s ∈ K.facets) : s ∈ K.faces := by
+lemma facets_subset {K : AbstractSimplicialComplex α} {s : Finset α} (hsf : s ∈ K.facets) : s ∈ K.faces := by
   rw [mem_facets_iff] at hsf 
   exact hsf.1 
 
@@ -175,25 +190,25 @@ lemma facets_subset {K : AbstractSimplicialComplex V} {s : Finset V} (hsf : s �
 section Lattice
 
 
-instance instPartialOrderFaces : PartialOrder.{u} (AbstractSimplicialComplex V) := PartialOrder.lift faces (fun _ _ heq => by ext; rw [heq])
+instance instPartialOrderFaces : PartialOrder.{u} (AbstractSimplicialComplex α) := PartialOrder.lift faces (fun _ _ heq => by ext; rw [heq])
 
 /- If K is a subcomplex of L, then every facet of L that is a face of K is also a facet of K.-/
 
-lemma Facets_subcomplex {K L : AbstractSimplicialComplex V} (hKL : K ≤ L) {s : Finset V} (hsK : s ∈ K.faces) (hsL : s ∈ L.facets) :
+lemma Facets_subcomplex {K L : AbstractSimplicialComplex α} (hKL : K ≤ L) {s : Finset α} (hsK : s ∈ K.faces) (hsL : s ∈ L.facets) :
 s ∈ K.facets := by 
   rw [mem_facets_iff, and_iff_right hsK] 
   exact fun _ htK hst => hsL.2 (hKL htK) hst 
 
-instance Inf : Inf.{u} (AbstractSimplicialComplex V) :=
+instance Inf : Inf.{u} (AbstractSimplicialComplex α) :=
 ⟨fun K L =>
 { faces := K.faces ∩ L.faces
   nonempty_of_mem := fun hs => K.nonempty_of_mem hs.1  
   down_closed := fun ⟨hsK, hsL⟩ hts ht => ⟨K.down_closed hsK hts ht, L.down_closed hsL hts ht⟩ }⟩
 
-lemma inf_faces {K L : AbstractSimplicialComplex V} : (K ⊓ L).faces = K.faces ⊓ L.faces := rfl
+lemma inf_faces {K L : AbstractSimplicialComplex α} : (K ⊓ L).faces = K.faces ⊓ L.faces := rfl
 
 
-instance Sup : Sup.{u} (AbstractSimplicialComplex V) :=
+instance Sup : Sup.{u} (AbstractSimplicialComplex α) :=
 ⟨fun K L => 
 { faces := K.faces ∪ L.faces
   nonempty_of_mem := fun hs => by cases hs with
@@ -203,11 +218,11 @@ instance Sup : Sup.{u} (AbstractSimplicialComplex V) :=
                                      | inl hsK => exact Or.inl $ K.down_closed hsK hts ht
                                      | inr hsL => exact Or.inr $ L.down_closed hsL hts ht }⟩
 
-lemma sup_faces {K L : AbstractSimplicialComplex V} : (K ⊔ L).faces = K.faces ⊔ L.faces := rfl
+lemma sup_faces {K L : AbstractSimplicialComplex α} : (K ⊔ L).faces = K.faces ⊔ L.faces := rfl
 
 
 
-instance DistribLattice : DistribLattice.{u} (AbstractSimplicialComplex V) :=
+instance DistribLattice : DistribLattice.{u} (AbstractSimplicialComplex α) :=
   {AbstractSimplicialComplex.instPartialOrderFaces,
   AbstractSimplicialComplex.Inf,
   AbstractSimplicialComplex.Sup with
@@ -223,39 +238,39 @@ instance DistribLattice : DistribLattice.{u} (AbstractSimplicialComplex V) :=
 
 
 
-instance Top : Top.{u} (AbstractSimplicialComplex V) :=
-⟨{faces := {s : Finset V | s.Nonempty}
+instance Top : Top.{u} (AbstractSimplicialComplex α) :=
+⟨{faces := {s : Finset α | s.Nonempty}
   nonempty_of_mem := fun hs => hs
   down_closed := fun _ _ ht => ht }⟩
 
 
-instance Bot : Bot.{u} (AbstractSimplicialComplex V) :=
-⟨{faces := (∅ : Set (Finset V)) 
+instance Bot : Bot.{u} (AbstractSimplicialComplex α) :=
+⟨{faces := (∅ : Set (Finset α)) 
   nonempty_of_mem := fun hs => by exfalso; exact Set.not_mem_empty _ hs
   down_closed := fun hs => by exfalso; exact Set.not_mem_empty _ hs}⟩
 
 
-instance OrderBot : OrderBot.{u} (AbstractSimplicialComplex V) := 
+instance OrderBot : OrderBot.{u} (AbstractSimplicialComplex α) := 
 {AbstractSimplicialComplex.Bot with
  bot_le := fun K σ hσ => by exfalso; exact Set.not_mem_empty _ hσ}
 
-instance OrderTop : OrderTop.{u} (AbstractSimplicialComplex V) :=
+instance OrderTop : OrderTop.{u} (AbstractSimplicialComplex α) :=
 { AbstractSimplicialComplex.Top with
   le_top := fun K _ hσ => K.nonempty_of_mem hσ
 }
 
 
-instance SupSet : SupSet.{u} (AbstractSimplicialComplex V) :=
+instance SupSet : SupSet.{u} (AbstractSimplicialComplex α) :=
 ⟨fun s =>
 { faces := sSup $ faces '' s
   nonempty_of_mem := fun ⟨k, ⟨K, _, hkK⟩, h⟩ => by rw [←hkK] at h; exact K.nonempty_of_mem h 
   down_closed := fun ⟨_, ⟨K, hKs, rfl⟩, hk⟩ hlk hl =>
     ⟨K.faces, ⟨K, hKs, rfl⟩, K.down_closed hk hlk hl⟩ }⟩
 
-lemma sSup_faces (s : Set (AbstractSimplicialComplex V)) : (sSup s).faces = sSup (faces '' s) := rfl
+lemma sSup_faces (s : Set (AbstractSimplicialComplex α)) : (sSup s).faces = sSup (faces '' s) := rfl
 
 
-instance InfSet : InfSet.{u} (AbstractSimplicialComplex V) :=
+instance InfSet : InfSet.{u} (AbstractSimplicialComplex α) :=
 ⟨fun s =>
 { faces := {t ∈ sInf $ faces '' s | t.Nonempty}
   nonempty_of_mem := fun ⟨_, hσ⟩ => hσ
@@ -263,12 +278,12 @@ instance InfSet : InfSet.{u} (AbstractSimplicialComplex V) :=
                                             rw [←hmM]
                                             exact M.down_closed (hk₁ M.faces ⟨M, hM, rfl⟩) hlk hl, hl⟩ }⟩
 
-lemma sInf_faces (s : Set (AbstractSimplicialComplex V)) : (sInf s).faces = {t ∈ sInf $ faces '' s | t.Nonempty} :=
+lemma sInf_faces (s : Set (AbstractSimplicialComplex α)) : (sInf s).faces = {t ∈ sInf $ faces '' s | t.Nonempty} :=
 rfl
 
 
 
-lemma sInf_faces_of_nonempty {s : Set (AbstractSimplicialComplex V)} (h : s.Nonempty) :
+lemma sInf_faces_of_nonempty {s : Set (AbstractSimplicialComplex α)} (h : s.Nonempty) :
   faces (sInf s) = sInf (faces '' s) := by
   rw [sInf_faces]
   ext σ
@@ -278,9 +293,9 @@ lemma sInf_faces_of_nonempty {s : Set (AbstractSimplicialComplex V)} (h : s.None
   exact K.nonempty_of_mem (hσ K hK) 
 
 
--- Abstract simplicial complexes with vertices in `V` form a `CompleteDistribLattice`
+-- Abstract simplicial complexes with vertices in `α` form a `CompleteDistribLattice`
 
-instance CompleteLattice  : CompleteLattice.{u} (AbstractSimplicialComplex V) := 
+instance CompleteLattice  : CompleteLattice.{u} (AbstractSimplicialComplex α) := 
 { AbstractSimplicialComplex.DistribLattice.toLattice, 
   AbstractSimplicialComplex.SupSet.{u}, 
   AbstractSimplicialComplex.InfSet.{u}, 
@@ -300,7 +315,7 @@ instance CompleteLattice  : CompleteLattice.{u} (AbstractSimplicialComplex V) :=
   }
 
 
-instance CompleteDistribLattice : CompleteDistribLattice.{u} (AbstractSimplicialComplex V) :=
+instance CompleteDistribLattice : CompleteDistribLattice.{u} (AbstractSimplicialComplex α) :=
 { AbstractSimplicialComplex.CompleteLattice.{u} with  
   iInf_sup_le_sup_sInf := by intro K s σ hσ 
                              rw [iInf, sInf_faces] at hσ
@@ -332,14 +347,14 @@ instance CompleteDistribLattice : CompleteDistribLattice.{u} (AbstractSimplicial
 end Lattice
 
 
-def FiniteComplex (K : AbstractSimplicialComplex V) : Prop := Finite K.faces
+def FiniteComplex (K : AbstractSimplicialComplex α) : Prop := Finite K.faces
 
-lemma Finite_IsLowerSet {K L : AbstractSimplicialComplex V} (hKL : K ≤ L) (hLfin : FiniteComplex L) : FiniteComplex K := 
-@Finite.Set.subset (Finset V) L.faces K.faces hLfin hKL    
+lemma Finite_IsLowerSet {K L : AbstractSimplicialComplex α} (hKL : K ≤ L) (hLfin : FiniteComplex L) : FiniteComplex K := 
+@Finite.Set.subset (Finset α) L.faces K.faces hLfin hKL    
 
 /- A finite simplicial complex has a finite set of facets.-/
 
-lemma FiniteComplex_has_finite_facets {K : AbstractSimplicialComplex V} (hfin : FiniteComplex K) : Finite K.facets := 
+lemma FiniteComplex_has_finite_facets {K : AbstractSimplicialComplex α} (hfin : FiniteComplex K) : Finite K.facets := 
 @Finite.Set.subset _ K.faces _ hfin (fun _ hsf => facets_subset hsf)
 
 section Classical
@@ -347,18 +362,18 @@ section Classical
 open Classical
 
 
-noncomputable def dimension (K : AbstractSimplicialComplex V) : ENat :=
+noncomputable def dimension (K : AbstractSimplicialComplex α) : ENat :=
   iSup (fun (s : K.faces) => (Finset.card s.1 : ENat)) - 1  
 
 
 
-def Pure (K : AbstractSimplicialComplex V) : Prop :=
-  ∀ ⦃s : Finset V⦄, s ∈ K.facets → ((s.card - 1 : ℕ) : ENat) = K.dimension
+def Pure (K : AbstractSimplicialComplex α) : Prop :=
+  ∀ ⦃s : Finset α⦄, s ∈ K.facets → ((s.card - 1 : ℕ) : ENat) = K.dimension
 
 end Classical
 
 
-def skeleton (K : AbstractSimplicialComplex V) (d : ℕ) : AbstractSimplicialComplex V :=
+def skeleton (K : AbstractSimplicialComplex α) (d : ℕ) : AbstractSimplicialComplex α :=
 { faces := {s ∈ K.faces | s.card ≤ d + 1}
   nonempty_of_mem := fun hs => K.nonempty_of_mem hs.1
   down_closed := fun ⟨hsK, hsd⟩ hts ht => ⟨K.down_closed hsK hts ht,
@@ -367,10 +382,10 @@ def skeleton (K : AbstractSimplicialComplex V) (d : ℕ) : AbstractSimplicialCom
 
 section
 
-variable [DecidableEq V]
+variable [DecidableEq α]
 
 
-def link (K : AbstractSimplicialComplex V) (s : Finset V) : AbstractSimplicialComplex V :=
+def link (K : AbstractSimplicialComplex α) (s : Finset α) : AbstractSimplicialComplex α :=
 { faces := {t ∈ K.faces | s ∩ t = ∅ ∧ s ∪ t ∈ K}
   nonempty_of_mem := fun hσ => K.nonempty_of_mem hσ.1
   down_closed := fun ⟨hσK, hσint, hσunion⟩ hτσ hτ => ⟨K.down_closed hσK hτσ hτ,
@@ -419,11 +434,11 @@ localization when defining the catgeory of abstract simplicial complexes.-/
 
 
 @[ext]
-structure SimplicialMap {U : Type u} {V : Type v} (K : AbstractSimplicialComplex U) (L : AbstractSimplicialComplex V) :=
+structure SimplicialMap {α : Type u} {β : Type v} (K : AbstractSimplicialComplex α) (L : AbstractSimplicialComplex β) :=
 (vertex_map : K.vertices → L.vertices)
 (face_map : K.faces → L.faces)
 (compatibility_vertex_face : ∀ (a : K.vertices), face_map ⟨{a.1}, a.2⟩ = ⟨{(vertex_map a).1}, (vertex_map a).2⟩)
-(compatibility_face_vertex : ∀ (s : K.faces) (b : V), b ∈ (face_map s).1 ↔ (∃ (a : U) (has : a ∈ s.1), 
+(compatibility_face_vertex : ∀ (s : K.faces) (b : β), b ∈ (face_map s).1 ↔ (∃ (a : α) (has : a ∈ s.1), 
   (vertex_map ⟨a, face_subset_vertices K s has⟩).1 = b))
 
 
@@ -542,10 +557,10 @@ end SimplicialMap
 
 namespace AbstractSimplicialComplex 
 
-variable {V : Type u}
+variable {α : Type u}
 
-def SubcomplexGenerated (K : AbstractSimplicialComplex V) (F : Set (Finset V)) : AbstractSimplicialComplex V := 
-of_subcomplex K {s : Finset V | s ∈ K.faces ∧ ∃ (t : Finset V), t ∈ F ∧ s ⊆ t} (by simp only [Set.sep_subset]) 
+def SubcomplexGenerated (K : AbstractSimplicialComplex α) (F : Set (Finset α)) : AbstractSimplicialComplex α := 
+of_subcomplex K {s : Finset α | s ∈ K.faces ∧ ∃ (t : Finset α), t ∈ F ∧ s ⊆ t} (by simp only [Set.sep_subset]) 
 (by intro s t hs hts htne 
     constructor
     . exact K.down_closed hs.1 hts htne 
@@ -554,37 +569,37 @@ of_subcomplex K {s : Finset V | s ∈ K.faces ∧ ∃ (t : Finset V), t ∈ F �
 
 
 
-lemma SubcomplexGenerated_mem (K : AbstractSimplicialComplex V) (F : Set (Finset V)) (s : Finset V) :
+lemma SubcomplexGenerated_mem (K : AbstractSimplicialComplex α) (F : Set (Finset α)) (s : Finset α) :
 s ∈ SubcomplexGenerated K F ↔ s ∈ K.faces ∧ ∃ (t : F), s ⊆ t := by 
   unfold SubcomplexGenerated 
-  change s ∈ {s | s ∈ K.faces ∧ ∃ (t : Finset V), t ∈ F ∧  s ⊆ t} ↔ _ 
+  change s ∈ {s | s ∈ K.faces ∧ ∃ (t : Finset α), t ∈ F ∧  s ⊆ t} ↔ _ 
   simp only [Set.mem_setOf_eq, Subtype.exists, exists_prop]
   
 
 /- The boundary of a simplex of K is the set of subspaces of s that are different from s. -/
 
-def Boundary {K : AbstractSimplicialComplex V} (s : K.faces) : AbstractSimplicialComplex V := --note that K is not needed, any nonempty subset of s is a face
-of_subcomplex K {t : Finset V | t ∈ K.faces ∧ t ⊂ s} (by simp only [Set.sep_subset])
+def Boundary {K : AbstractSimplicialComplex α} (s : K.faces) : AbstractSimplicialComplex α := --note that K is not needed, any nonempty subset of s is a face
+of_subcomplex K {t : Finset α | t ∈ K.faces ∧ t ⊂ s} (by simp only [Set.sep_subset])
 (by intro t u ht hut hune 
     constructor
     . exact K.down_closed ht.1 hut hune 
     . exact lt_of_le_of_lt hut ht.2)
 
-lemma Boundary_mem {K : AbstractSimplicialComplex V} (s : K.faces) (t : Finset V):
+lemma Boundary_mem {K : AbstractSimplicialComplex α} (s : K.faces) (t : Finset α):
 t ∈ (Boundary s).faces ↔ t ∈ K.faces ∧ t ⊆ s.1 ∧ t ≠ s.1 := by 
   unfold Boundary 
-  change t ∈ {t : Finset V | t ∈ K.faces ∧ t ⊂ s} ↔ _ 
+  change t ∈ {t : Finset α | t ∈ K.faces ∧ t ⊂ s} ↔ _ 
   simp only [Set.mem_setOf_eq, ne_eq, and_congr_right_iff]
   exact fun _ => by rw [Finset.ssubset_iff_subset_ne]
 
 
 
 
-lemma BoundaryFinite {K : AbstractSimplicialComplex V} (s : K.faces) : FiniteComplex (Boundary s) := by 
-  apply @Finite.of_injective (Boundary s).faces {u : Set V | u ⊆ ↑s.1} (Set.finite_coe_iff.mpr (@Set.Finite.finite_subsets V ↑s.1 (Finset.finite_toSet _))) 
+lemma BoundaryFinite {K : AbstractSimplicialComplex α} (s : K.faces) : FiniteComplex (Boundary s) := by 
+  apply @Finite.of_injective (Boundary s).faces {u : Set α | u ⊆ ↑s.1} (Set.finite_coe_iff.mpr (@Set.Finite.finite_subsets α ↑s.1 (Finset.finite_toSet _))) 
     (fun (t : (Boundary s).faces) => by have ht := t.2 
                                         rw [Boundary_mem, ←Finset.coe_subset] at ht 
-                                        exact (⟨↑t.1, ht.2.1⟩ : {u : Set V | u ⊆ ↑s.1}))
+                                        exact (⟨↑t.1, ht.2.1⟩ : {u : Set α | u ⊆ ↑s.1}))
   intro t u heq 
   simp only [Set.coe_setOf, Set.mem_setOf_eq, Subtype.mk.injEq, Finset.coe_inj] at heq
   rw [SetCoe.ext_iff] at heq
