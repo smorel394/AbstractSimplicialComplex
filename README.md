@@ -15,6 +15,7 @@ Definitions:
 - Partial order on abstract simplicial complexes (on a fixed type) and CompleteDistribLattice structure on them.
 - Finite complexes (= having a finite set of faces).
 - Dimension (the iSup in ENat of the function sending a face s to card(s)-1).
+- A finite complex is finite dimensional.
 - Pure complexes (a complex is pure if its dimension is equal to card(s)-1 for every facet s).
 - n-skeleton.
 - Link of a face.
@@ -104,8 +105,7 @@ Results about ideals:
 
 Results about Noetherian simplicial complexes (i.e. those with a Noetherian face poset):
 - If K is Noetherian, then every face of K is contained in a facet.
-- A finite complex is finite dimensional.
-- A finite dimensional complex is Noetherian.
+- A finite or finite dimensional complex is Noetherian.
 - If K is Noetherian and all its facets have the same dimension, then K is pure.
 
 

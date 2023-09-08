@@ -374,6 +374,8 @@ lemma Finite_IsLowerSet {K L : AbstractSimplicialComplex α} (hKL : K ≤ L) (hL
 lemma FiniteComplex_has_finite_facets {K : AbstractSimplicialComplex α} (hfin : FiniteComplex K) : Finite K.facets := 
 @Finite.Set.subset _ K.faces _ hfin (fun _ hsf => facets_subset hsf)
 
+
+
 section Classical
 
 open Classical
@@ -382,6 +384,19 @@ open Classical
 (where the dimension of a face s is card(s)-1). We take it to be an ENat.-/
 noncomputable def dimension (K : AbstractSimplicialComplex α) : ENat :=
   iSup (fun (s : K.faces) => (Finset.card s.1 : ENat)) - 1  
+
+/- A finite simplicial complex is finite-dimensional.-/
+lemma Finite_implies_finite_dimensional {K : AbstractSimplicialComplex α} (hfin : FiniteComplex K) : dimension K ≠ ⊤ := by
+  rw [←WithTop.lt_top_iff_ne_top]
+  set n := Finset.sup (Set.Finite.toFinset (@Set.toFinite _ _ hfin)) (fun s => (Finset.card s)) 
+  have hboun : dimension K ≤ ↑n := by 
+    unfold dimension 
+    refine le_trans (@tsub_le_self _ _ _ _ _ 1) ?_
+    rw [iSup_le_iff]
+    intro s 
+    erw [WithTop.coe_le_coe, Nat.cast_le] 
+    exact Finset.le_sup ((Set.Finite.mem_toFinset _).mpr s.2) 
+  exact lt_of_le_of_lt hboun (WithTop.coe_lt_top n)
 
 
 /- An abstract simplicial complex is pure if its dimension is equal to the dimension of any
