@@ -7,6 +7,7 @@ open CategoryTheory.Functor NatIso Category
 
 universe v₁ v₂ v₃ u₁ u₂ u₃
 
+/-Let C,D,E be categories. Then an equivalence from C to D defines an equivalence from the functor category C ⥤ E to D ⥤ E.-/
 instance Equivalence.FunctorCategory (C : Type u₁) (D : Type u₂) (E : Type u₃) [Category.{v₁} C] [Category.{v₂} D] [Category.{v₃} E] 
 (Eq : Equivalence C D) : Equivalence (C ⥤ E) (D ⥤ E) := by
   apply Equivalence.mk 
