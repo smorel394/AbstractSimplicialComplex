@@ -7,13 +7,15 @@ variable {α : Type u} {K : AbstractSimplicialComplex α}
 
 namespace AbstractSimplicialComplex 
 
-/- The Euler-Poincaré characteristic of a finite simplicial complex K is the sum over all faces of K of -1 to the dimension of the face (i.e.
-the cardinality minus 1). -/
+/- This files contains the definition of the Euler-Poincaré characteristic of a finite simplicial complex, and its calculation for
+a decomposable complex. We fix an abstract simplicial complex K.-/
 
+/- If K is finite, definition of the set of faces of K as a finset of Finset α.-/
 noncomputable def FacesFinset (hfin : FiniteComplex K) : Finset (Finset α) := by
   have hf : K.faces.Finite := by rw [←Set.finite_coe_iff]; exact hfin 
   exact Set.Finite.toFinset hf
 
+/- If K is finite, definition of the set of facets of K as a finset of Finset α.-/
 noncomputable def FacetsFinset (hfin : FiniteComplex K) : Finset (Finset α) := by 
   have hf : K.facets.Finite := by 
     rw [←Set.finite_coe_iff]
@@ -24,13 +26,14 @@ noncomputable def FacetsFinset (hfin : FiniteComplex K) : Finset (Finset α) := 
     exact hst
   exact Set.Finite.toFinset hf 
 
+/- The Euler-Poincaré characteristic of a finite simplicial complex K is the sum over all faces of K of -1 to the dimension of the face (i.e.
+the cardinality minus 1). -/
 noncomputable def EulerPoincareCharacteristic (hfin : FiniteComplex K) : ℤ := Finset.sum (FacesFinset hfin) 
 (fun s => (-1 : ℤ)^(Finset.card s - 1))  
 
 
 
 /- If two abstract simplicial complexes have the same set of faces, then they have the same Euler-Poincaré characteristic.-/
-
 lemma EulerPoincareCharacteristic_ext {K L : AbstractSimplicialComplex α} (hKfin : FiniteComplex K) (hLfin : FiniteComplex L)
 (heq : K.faces = L.faces) :
 EulerPoincareCharacteristic hKfin = EulerPoincareCharacteristic hLfin := by
@@ -42,7 +45,7 @@ EulerPoincareCharacteristic hKfin = EulerPoincareCharacteristic hLfin := by
   rw [heqfin]
 
 /- We want to calculate the Euler-Poincaré characteristic of a decomposable simplicial complex. To express the result, we define the sets
-of π0 and homology facets. -/
+of π0 and homology facets, as sets of finsets of α (not of facets of K). -/
 
 def π₀Facets {R : K.facets → Finset α}  {DF : K.faces → K.facets} (hdec : IsDecomposition R DF) : 
 Set (Finset α) := {s | ∃ (hsf : s ∈ K.facets), IsPi0Facet hdec ⟨s, hsf⟩}
@@ -70,13 +73,14 @@ lemma HomologyFacets_finite {R : K.facets → Finset α}  {DF : K.faces → K.fa
   rw [SetCoe.ext_iff] at heq 
   exact heq 
 
-/- Now we prove the formula for the Euler-Poincaré characteristic of a finite decomposable complex.-/
+/- Now we prove the formula for the Euler-Poincaré characteristic of a finite decomposable complex with a given decomposition (R,DF)..-/
 
 /- First we will split the sum as a sum over the fibers of the map DF, so for technical reasons it is convenient to extend DF to a function
 from Finset α to itself.-/
 
 open Classical 
 
+/- The extension of DF to a function on Finset α: we set every non-facet to ∅.-/
 noncomputable def DFe (DF : K.faces → K.facets) : Finset α → Finset α := by
   intro s 
   by_cases hsf : s ∈ K.faces 
@@ -84,15 +88,16 @@ noncomputable def DFe (DF : K.faces → K.facets) : Finset α → Finset α := b
   . exact (∅ : Finset α)
 
 
-/- Then we construct a bijection between the image by DFe of the set of faces and the set of facets, as a Finset of Finset α (this is what
-we call FacetsFinset). To use Finset.sum_bij, we need this bijection to send the sum of (-1)^(card s-1) over a fiber to DF to the function
+/- Then we construct a bijection between FacetsFinset(K) (that is, the set of facets of K seen as a finset of Finset α) 
+and the image by DFe (or DF) of FacesFinset(K) (that is, the set of faces of K seen as finset of Finset α)/
+We will use Finset.sum_bij with this bijection, so we need it to send the sum of (-1)^(card s-1) over a fiber to DF to the function
 Sum_on_DecompositionInterval, which we define using a version of the decomposition interval that is a Finset of Finset α (instead of K.faces).-/
 
-
-
+/- A map from the set of fibers of DFe to Finset α, sending an element of DFe^{-1}(s) to s.-/
 noncomputable def Quotient_DFe_to_finset (DF : K.faces → K.facets) : Quotient (Setoid.ker (DFe DF)) → Finset α := 
 Quotient.lift (fun s => DFe DF s) (by intro s t hst; change Setoid.Rel (Setoid.ker (DFe DF)) s t at hst; rw [Setoid.ker_def] at hst; exact hst)
 
+/- If x is a fiber of DFe containing a face of K, then its image by the map of the previous definition is a facet.-/
 lemma Quotient_DFe_to_finset_is_facet_aux (DF : K.faces → K.facets) (hfin : FiniteComplex K) {x : Quotient (Setoid.ker (DFe DF))} 
 (hx : x ∈ Finset.image (@Quotient.mk'' _ (Setoid.ker (DFe DF))) (FacesFinset hfin)) : 
 Quotient_DFe_to_finset DF x ∈ K.facets := by
@@ -106,6 +111,8 @@ Quotient_DFe_to_finset DF x ∈ K.facets := by
                        unfold DFe
                        simp only [hsf, dite_true, Subtype.coe_prop]
 
+/- If x is a fiber of DFe containing a face of K, then its image by the map of the previous definition is a facet seen as an
+element of FacetsFinset.-/
 lemma Quotient_DFe_to_finset_is_facet (DF : K.faces → K.facets) (hfin : FiniteComplex K) {x : Quotient (Setoid.ker (DFe DF))} 
 (hx : x ∈ Finset.image (@Quotient.mk'' _ (Setoid.ker (DFe DF))) (FacesFinset hfin)) : 
 Quotient_DFe_to_finset DF x ∈ FacetsFinset hfin := by
@@ -113,13 +120,14 @@ Quotient_DFe_to_finset DF x ∈ FacetsFinset hfin := by
   rw [Set.Finite.mem_toFinset] 
   exact Quotient_DFe_to_finset_is_facet_aux DF hfin hx 
 
-
+/- Definition of decomposition intervals for a map R from facets of K to Finset α: the interval corresponding to
+s is the interval [R(s),s] of Finset α if R(s) ≠ ∅, and the interval (R(s),s] of Finset α otherwise.-/
 noncomputable def DecompositionInterval' (R : K.facets → Finset α) (s : K.facets) : Finset (Finset α) := by 
   by_cases R s = ∅
   . exact Finset.Ioc ∅ s.1 
   . exact Finset.Icc (R s) s.1 
 
-
+/- If R is part of a decomposition, then the two definitions of decomposition intervals agree.-/
 lemma ComparisonIntervals {R : K.facets → Finset α}  {DF : K.faces → K.facets} (hdec : IsDecomposition R DF) (s : K.facets)
 (t : Finset α) :
 t ∈ DecompositionInterval' R s ↔ ∃ (htf : t ∈ K.faces), ⟨t, htf⟩ ∈ DecompositionInterval hdec s := by 
@@ -152,12 +160,16 @@ t ∈ DecompositionInterval' R s ↔ ∃ (htf : t ∈ K.faces), ⟨t, htf⟩ ∈
       rw [DecompositionInterval_def] at htint
       exact htint 
 
-
+/- Using the new definition of decomposition intervals, we define the sum of (-1)^{card(s)-1} on a decomposition
+interval of R.-/
 noncomputable def Sum_on_DecompositionInterval (R : K.facets → Finset α) (s : Finset α) : ℤ := by
   by_cases hsf : s ∈ K.facets  
   . exact Finset.sum (DecompositionInterval' R ⟨s, hsf⟩) (fun t => (-1 :ℤ)^(Finset.card t - 1)) 
   . exact (0 : ℤ)
 
+/- Let (R,DF) be a decomposition of K. If x is a fiber of DFe that contains a face, if t is its image by DFe (which is know to be
+a facet), then the sum of (-1)^{card(s) -1} over the faces s ∈ x is equal to the "sum on decomposition interval" function
+just defined evaluated at t.-/
 lemma ComparisonFunctionsonQuotient {DF : K.faces → K.facets} {R : K.facets → Finset α} (hdec : IsDecomposition R DF)
 (hfin : FiniteComplex K) (x : Quotient (Setoid.ker (DFe DF))) 
 (hx : x ∈ Finset.image (@Quotient.mk'' _ (Setoid.ker (DFe DF))) (FacesFinset hfin)) : 
@@ -242,6 +254,7 @@ Finset.sum (Finset.filter (fun s => Quotient.mk (Setoid.ker (DFe DF)) s = x) (Fa
   simp only [ge_iff_le, Quotient_DFe_to_finset_is_facet_aux DF hfin hx, dite_true]
 
 
+/- The map from fibers of DFe to finsets of α (induced by DF) is injective.-/
 -- We should not need K to be finite for this.
 lemma Quotient_DFe_to_finset_inj (DF : K.faces → K.facets) (hfin : FiniteComplex K) (x y : Quotient (Setoid.ker (DFe DF))) 
 (hx : x ∈ Finset.image (@Quotient.mk'' _ (Setoid.ker (DFe DF))) (FacesFinset hfin))
@@ -265,6 +278,7 @@ lemma Quotient_DFe_to_finset_inj (DF : K.faces → K.facets) (hfin : FiniteCompl
                                             rw [Setoid.ker_def]
                                             exact heq 
 
+/- If DF is part of a decomposition, then the map from fibers of DFe containing at least a face to facets of K (induced by DF) is surjective.-/
 -- We should not need K to be finite for this.
 lemma Quotient_DFe_to_finset_surj {R : K.facets → Finset α}  {DF : K.faces → K.facets} (hdec : IsDecomposition R DF) 
 (hfin : FiniteComplex K) (s : Finset α) (hsf : s ∈ FacetsFinset hfin) :
@@ -293,10 +307,11 @@ s = Quotient_DFe_to_finset DF x := by
 
 /- The next step is to write FacetsFinset as a disjoint union of the finset of π₀ facets, the finset of homology facets and the finset of other
 facets (which we call "boring facets"). -/
-
+/- Definition of boring facets as the set of Finset α consisting of the non-π₀ non-homology facets.-/
 def BoringFacets {R : K.facets → Finset α}  {DF : K.faces → K.facets} (hdec : IsDecomposition R DF) : 
 Set (Finset α) := {s | ∃ (hsf : s ∈ K.facets), ¬(IsPi0Facet hdec ⟨s, hsf⟩) ∧ ¬(IsHomologyFacet hdec ⟨s, hsf⟩)}
 
+/- If K is finite, so is its set of boring facets-/
 lemma BoringFacets_finite {R : K.facets → Finset α}  {DF : K.faces → K.facets} (hdec : IsDecomposition R DF) (hfin : FiniteComplex K) : 
 (BoringFacets hdec).Finite := by 
   rw [←Set.finite_coe_iff]
@@ -306,6 +321,7 @@ lemma BoringFacets_finite {R : K.facets → Finset α}  {DF : K.faces → K.face
   rw [SetCoe.ext_iff] at heq 
   exact heq 
 
+/- The finset of facets is equal to the union of the finset of boring facets, the finset of π₀ facets and the finset of homology facets.-/
 lemma every_facet_is_boring_or_interesting {R : K.facets → Finset α}  {DF : K.faces → K.facets} (hdec : IsDecomposition R DF) (hfin : FiniteComplex K) :
 FacetsFinset hfin = Set.Finite.toFinset (BoringFacets_finite hdec hfin) ∪ (Set.Finite.toFinset (π₀Facets_finite hdec hfin)
 ∪ Set.Finite.toFinset (HomologyFacets_finite hdec hfin)) := by
@@ -328,6 +344,8 @@ FacetsFinset hfin = Set.Finite.toFinset (BoringFacets_finite hdec hfin) ∪ (Set
                   | inr hhom => exact hhom.1
     | inl hbor => exact hbor.1
 
+
+/- The new two lemmas say that the union of the previous lemma is disjoint.-/
 lemma boring_is_not_interesting {R : K.facets → Finset α}  {DF : K.faces → K.facets} (hdec : IsDecomposition R DF) (hfin : FiniteComplex K) :
 Disjoint (Set.Finite.toFinset (BoringFacets_finite hdec hfin)) (Set.Finite.toFinset (π₀Facets_finite hdec hfin)
 ∪ Set.Finite.toFinset (HomologyFacets_finite hdec hfin)) := by 
@@ -362,8 +380,10 @@ Disjoint (Set.Finite.toFinset (π₀Facets_finite hdec hfin)) (Set.Finite.toFins
                                      unfold IsHomologyFacet at hthom
                                      exact hthom.1 hspi                                     
 
-/- Now we have to actually calculate some sums. Firs, if s is boring facet, then the sum on the corresponding interval is 0.-/
 
+/- Now we have to actually calculate some sums. First, if s is boring facet, we show that the sum on the corresponding interval is 0.-/
+
+/- If s is nonempty finset, then the sum of (-1)^{card t} on the powerset of s is 0.-/
 lemma AlternatingSumPowerset {s : Finset α} (hsne : s.Nonempty) :
 Finset.sum (Finset.powerset s) (fun (t : Finset α) => (-1 : ℤ)^(t.card)) = 0 := by
   have h := Finset.sum_pow_mul_eq_add_pow (-1 : ℤ) (1 : ℤ) s 
@@ -371,6 +391,7 @@ Finset.sum (Finset.powerset s) (fun (t : Finset α) => (-1 : ℤ)^(t.card)) = 0 
   simp only [zero_pow hsne, one_pow, mul_one, add_left_neg] at h 
   exact h 
 
+/- If s ⊂ t are finsets, then the sum of (-1)^{card x - 1} on the interval [s,t] is 0.-/
 lemma Sum_on_FinsetInterval1 {s t : Finset α} (hst : s ⊂ t) : Finset.sum (Finset.Icc s t) (fun s => (-1 :ℤ)^(Finset.card s)) = 0 := by 
   rw [@Finset.sum_bij ℤ (Finset α) (Finset α) _ (Finset.Icc s t) (Finset.powerset (t \ s)) (fun s => (-1)^(Finset.card s))
   (fun x => (-1)^(Finset.card x + Finset.card s)) (fun x _ => x \ s)
@@ -408,7 +429,7 @@ lemma Sum_on_FinsetInterval1 {s t : Finset α} (hst : s ⊂ t) : Finset.sum (Fin
   rw [Finset.sdiff_nonempty]
   exact not_le_of_lt hst
 
-
+/- If s is a nonempty finset, then the sum of (-1)^{card x - 1} on the interval (∅,s] is 1.-/
 lemma Sum_on_FinsetInterval2 {s : Finset α} (hsne : s.Nonempty) : Finset.sum (Finset.Ioc ∅ s) (fun s => (-1 :ℤ)^(Finset.card s - 1)) = 1 := by 
   rw [@Finset.sum_congr ℤ (Finset α) (Finset.Ioc ∅ s) _ (fun s => (-1)^(Finset.card s - 1)) (fun s => (-1 : ℤ) * (-1 : ℤ)^(Finset.card s)) _ rfl
   (fun s hs => by simp only [ge_iff_le, Finset.le_eq_subset, Finset.mem_Ioc, Finset.lt_eq_subset, Finset.empty_ssubset] at hs
@@ -456,7 +477,7 @@ lemma Sum_on_FinsetInterval2 {s : Finset α} (hsne : s.Nonempty) : Finset.sum (F
   rw [hsum]
   simp only 
 
-
+/- Suppose that we have a decomposition (R,DF). If s is a boring facet, then R(s) is nonempty and strictly contained in s.-/
 lemma BoringFacet_image_by_R {R : K.facets → Finset α}  {DF : K.faces → K.facets} (hdec : IsDecomposition R DF) {s : Finset α}
 (hs : s ∈ BoringFacets hdec) : R ⟨s, hs.1⟩ ≠ ∅ ∧ R ⟨s, hs.1⟩ ⊂ s :=  by
   unfold BoringFacets at hs
@@ -486,7 +507,7 @@ lemma BoringFacet_image_by_R {R : K.facets → Finset α}  {DF : K.faces → K.f
                              . exact fun heq => by rw [heq]; exact ⟨le_refl _, le_refl _⟩
                            exact hs2 hs1 habs 
 
-
+/- Suppose that we have a decomposition (R,DF). If s is a boring facet, then the sum on the corresponding decomposition interval is 0.-/
 lemma Sum_on_DecompositionInterval_BoringFacet {R : K.facets → Finset α}  {DF : K.faces → K.facets} (hdec : IsDecomposition R DF)
 {s : Finset α} (hs : s ∈ BoringFacets hdec) : Sum_on_DecompositionInterval R s = 0 := by 
   unfold Sum_on_DecompositionInterval
@@ -518,7 +539,7 @@ lemma Sum_on_DecompositionInterval_BoringFacet {R : K.facets → Finset α}  {DF
       )]
   rw [←Finset.mul_sum, Sum_on_FinsetInterval1 (BoringFacet_image_by_R hdec hs).2, mul_zero] 
   
-
+/- Suppose that we have a decomposition (R,DF). If s is a π₀ facet, then the corresponding decomposition interval is (∅,s].-/
 lemma π₀Facet_interval {R : K.facets → Finset α}  {DF : K.faces → K.facets} (hdec : IsDecomposition R DF) {s : Finset α}
 (hs : s ∈ π₀Facets hdec) : DecompositionInterval' R ⟨s, hs.1⟩ = Finset.Ioc ∅ s := by 
   unfold π₀Facets at hs 
@@ -537,6 +558,7 @@ lemma π₀Facet_interval {R : K.facets → Finset α}  {DF : K.faces → K.face
                                       simp only [Finset.mem_Iic, Subtype.mk_le_mk, Finset.le_eq_subset]
                                       exact ht.2
 
+/- Suppose that we have a decomposition (R,DF). If s is a π₀ facet, then the sum on the corresponding decomposition interval is 1.-/
 lemma Sum_on_DecompositionInterval_π₀Facet {R : K.facets → Finset α}  {DF : K.faces → K.facets} (hdec : IsDecomposition R DF)
 {s : Finset α} (hs : s ∈ π₀Facets hdec) : Sum_on_DecompositionInterval R s = 1 := by 
   unfold Sum_on_DecompositionInterval
@@ -544,6 +566,7 @@ lemma Sum_on_DecompositionInterval_π₀Facet {R : K.facets → Finset α}  {DF 
   rw [π₀Facet_interval hdec hs]
   exact Sum_on_FinsetInterval2 (K.nonempty_of_mem (facets_subset hs.1))
 
+/- Suppose that we have a decomposition (R,DF). If s is a homology facet, then the corresponding decomposition interval is {s}.-/
 lemma HomologyFacet_interval {R : K.facets → Finset α}  {DF : K.faces → K.facets} (hdec : IsDecomposition R DF) {s : Finset α}
 (hs : s ∈ HomologyFacets hdec) : DecompositionInterval' R ⟨s, hs.1⟩ = {s} := by 
   unfold HomologyFacets at hs 
@@ -563,6 +586,8 @@ lemma HomologyFacet_interval {R : K.facets → Finset α}  {DF : K.faces → K.f
                                       simp only [Finset.mem_singleton]
 
 
+/- Suppose that we have a decomposition (R,DF). If s is a homology facet, then the sum on the corresponding decomposition interval is
+(-1)^{card(s) - 1}.-/
 lemma Sum_on_DecompositionInterval_HomologyFacet {R : K.facets → Finset α}  {DF : K.faces → K.facets} (hdec : IsDecomposition R DF)
 {s : Finset α} (hs : s ∈ HomologyFacets hdec) : Sum_on_DecompositionInterval R s = (-1 : ℤ)^(Finset.card s - 1) := by 
   unfold Sum_on_DecompositionInterval
@@ -571,8 +596,8 @@ lemma Sum_on_DecompositionInterval_HomologyFacet {R : K.facets → Finset α}  {
   simp only [ge_iff_le, Finset.sum_singleton]
 
 
-/- Finally we put everything to calculate the Euler-Poincaré characteristic of K.-/
-
+/- Finally we put everything to calculate the Euler-Poincaré characteristic of K, for K finite and having a decomposition: 
+it is equal to the cardinality of the set of π₀ facets plus the sum over boring facets of the function s ↦ (-1)^{card(s) - 1}.-/
 lemma EulerPoincareCharacteristicDecomposable (hfin : FiniteComplex K) {R : K.facets → Finset α}  {DF : K.faces → K.facets} 
 (hdec : IsDecomposition R DF) :
 EulerPoincareCharacteristic hfin = Finset.card (Set.Finite.toFinset (π₀Facets_finite hdec hfin)) + 
