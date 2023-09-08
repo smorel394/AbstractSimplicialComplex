@@ -11,7 +11,8 @@ import Mathlib.Topology.Instances.NNReal
 
 universe u v 
 
-/- This is basically a copy-paste of FintypeCat, adapted to nonempty finite types.-/
+/- The category of nonempty fintypes.-/
+/- This is basically a copy-paste of Adam Topaz's FintypeCat file, adapted to nonempty finite types.-/
 
 /-!
 # The category of nonempmty finite types.
@@ -103,7 +104,7 @@ theorem id_apply (X : FintypeNECat) (x : X) : (𝟙 X : X → X) x = x :=
 theorem comp_apply {X Y Z : FintypeNECat} (f : X ⟶ Y) (g : Y ⟶ Z) (x : X) : (f ≫ g) x = g (f x) :=
   rfl
 
--- porting note: added to ease automation
+-- porting note: added to ease automation --SMorel's note: I have no idea what this means.
 @[ext]
 lemma hom_ext {X Y : FintypeNECat} (f g : X ⟶ Y) (h : ∀ x, f x = g x): f = g := by
   funext
@@ -222,8 +223,8 @@ noncomputable def isSkeleton : IsSkeletonOf FintypeNECat Skeleton Skeleton.incl 
   eqv := by infer_instance
 
 
-/- We define the geometric realization, sending an object S of FintypeNECat to the topological simplex on S.-/
 
+/- We define the geometric realization, sending an object S of FintypeNECat to the topological simplex on S.-/
 
 noncomputable section 
 
