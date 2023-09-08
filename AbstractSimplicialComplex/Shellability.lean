@@ -6,12 +6,15 @@ universe u
 
 variable {α : Type u} {K : AbstractSimplicialComplex α} [DecidableEq α]
 
-/- Shellability : an abstract simplicial complex is shellable if there exists a well-order on its
-facets such that, for every non-minimal facet s, the corresponding set of old faces is 
-empty or pure of dimension dim(s)-1. We will define IsShellingOrder for a linear order on the facets.-/
+/- Shellability : an abstract simplicial complex is shellable if there exists a well-order r on its
+facets such that, for every non-minimal facet s, the corresponding set of old faces (i.e. the complex of faces
+that are contained in a facet smaller than s for r) is empty or pure of dimension dim(s)-1. 
+If r is a linear order on the facets of K, we define IsShellingOrder r to mean that r is such an order.-/
 
 namespace AbstractSimplicialComplex 
 
+/- Let r be a linear order on the facets of K. It is called a shelling order if it is a well-order and if,
+for every facet s, the corresponding complex of old faces is empty or pure of dimension card(s)-2.-/
 def IsShellingOrder (r : LinearOrder K.facets) : Prop := 
 (WellFounded r.lt) ∧ ∀ (s : K.facets), (OldFaces r.toPartialOrder s).faces = ∅ ∨ 
 (Pure (OldFaces r.toPartialOrder s) ∧ (OldFaces r.toPartialOrder s).dimension = Finset.card s.1 - 2)
@@ -27,15 +30,20 @@ lemma ShellingOrderRestriction_aux (r : PartialOrder K.facets) (s : K.facets) : 
   rw [Set.subset_def]
   exact fun _ ha => ha.1 
 
+/- Given a partial order r on the facets of K, we define the restriction R as the map sending a facet s to the set of elements
+a of s such that s-{a} is an old face. This set is finite by the preceding lemma.-/
 noncomputable def ShellingOrderRestriction (r : PartialOrder K.facets) (s : K.facets) : Finset α :=
 Set.Finite.toFinset (ShellingOrderRestriction_aux r s)
 
+/-Reformulation of the definition of R(s).-/
 lemma ShellingOrderRestriction_def (r : PartialOrder K.facets) (s : K.facets) (a : α) :
 a ∈ ShellingOrderRestriction r s ↔ a ∈ s.1 ∧ Finset.erase s.1 a ∈ (OldFaces r s).faces := by 
   unfold ShellingOrderRestriction
   rw [Set.Finite.mem_toFinset]
   simp only [Set.mem_setOf_eq]
 
+/- If r is a partial order on the facets of K, s is a facet and a is an element of α, then a is in R(s) if and only a ∈ s,
+s ≠ {a} and there exists a facet u smaller than s for the order r and such that s-{a} ⊆ u. -/
 lemma ShellingOrderRestriction_mem (r : PartialOrder K.facets) (s : K.facets) (a : α) :
 a ∈ ShellingOrderRestriction r s ↔ a ∈ s.1 ∧ s.1 ≠ {a} ∧ (∃ (u : K.facets), r.lt u s ∧ Finset.erase s.1 a ⊆ u.1) := by 
   rw [ShellingOrderRestriction_def]
@@ -60,6 +68,7 @@ a ∈ ShellingOrderRestriction r s ↔ a ∈ s.1 ∧ s.1 ≠ {a} ∧ (∃ (u : K
     match ha.2 with 
   | ⟨u, ⟨⟨huf, hus⟩, hau⟩⟩ => exists ⟨u, huf⟩ 
 
+/- If r is a partial order on the facets of K and s is a facet, then R(s) ⊆ s.-/
 lemma ShellingOrderRestriction_smaller (r : PartialOrder K.facets) (s : K.facets) :
 ShellingOrderRestriction r s ⊆ s.1 := by 
   rw [Finset.subset_iff]
@@ -67,6 +76,8 @@ ShellingOrderRestriction r s ⊆ s.1 := by
   rw [ShellingOrderRestriction_def] at haR 
   exact haR.1 
 
+/- If r is a partial order on the facets of K, s is a facet and t is a face such that t ⊆ s and R(s) is not contained in
+t, then t is an old face. -/
 lemma not_containing_restriction_is_old_face (r : PartialOrder K.facets) (s : K.facets) (t : K.faces) (hts : t.1 ⊆ s.1) 
 (htR : ¬(ShellingOrderRestriction r s ⊆ t.1)) : t.1 ∈ (OldFaces r s).faces := by 
   rw [Finset.not_subset] at htR 
@@ -75,7 +86,9 @@ lemma not_containing_restriction_is_old_face (r : PartialOrder K.facets) (s : K.
                        apply (OldFaces r s).down_closed haR.2 ?_ (K.nonempty_of_mem t.2)
                        rw [Finset.subset_erase]
                        exact ⟨hts, hat⟩
-               
+
+/- If r is a partial order on the facets of K, s is a facet such that the complex of old faces is pure of dimension
+card(s) - 2 (always true for a decomposition), if t is a face of the complex of old faces, then t does not contain R(s).-/
 lemma old_face_does_not_contain_restriction (r : PartialOrder K.facets) (s : K.facets) 
 (hof : Pure (OldFaces r s) ∧ (OldFaces r s).dimension = Finset.card s.1 - 2) {t : Finset α}
 (htof : t ∈ (OldFaces r s).faces) : ¬(ShellingOrderRestriction r s ⊆ t) := by 
@@ -120,29 +133,33 @@ lemma old_face_does_not_contain_restriction (r : PartialOrder K.facets) (s : K.f
                                    exact Finset.not_mem_erase a s.1 hau' 
 
 
-/- Definition of the "smallest facet" map. As the name indicates, it sends a face s to the smallest facet (for the shelling order) containing s.
-For this set to be nonempty, we need to know that s is contained in at least one facet; we call this condition "ExistsFacet". It is satisfied by
-Noetherian complexes.
--/
+/- Definition of the "smallest facet" map, which will be the map DF of the decomposition. As the name indicates, it sends a face s to 
+the smallest facet (for the fixed order r on facets) containing s. For this set to be nonempty, we need to know that s is contained in 
+at least one facet; we call this condition "ExistsFacet". We also r to be a well-order for the definition to make sense.-/
 
 def ExistsFacet (K : AbstractSimplicialComplex α): Prop := ∀ (s : K.faces), ∃ (t : K.facets), s.1 ⊆ t.1 
 
-lemma Noetherian_ExistsFacet (hnoeth : IsNoetherianPoset K.faces) : ExistsFacet K := by 
-  intro s 
-  match Noetherian_implies_every_face_contained_in_facet hnoeth s with 
-  | ⟨t, htf⟩ => exists ⟨t.1, htf.1⟩; exact htf.2 
 
 noncomputable def ShellingOrderSmallestFacet (r : LinearOrder K.facets) (hwf : WellFounded r.lt) (hef : ExistsFacet K) 
 (s : K.faces) : K.facets := 
 WellFounded.min hwf {t : K.facets | s.1 ⊆ t.1} (by match hef s with
                                                   | ⟨t, _⟩ => exists t)
 
+
+/- If the poset of faces of K is Noetherian, then K satisfies condition ExistsFacet.-/
+lemma Noetherian_ExistsFacet (hnoeth : IsNoetherianPoset K.faces) : ExistsFacet K := by 
+  intro s 
+  match Noetherian_implies_every_face_contained_in_facet hnoeth s with 
+  | ⟨t, htf⟩ => exists ⟨t.1, htf.1⟩; exact htf.2 
+
+/- If the smallest facet map DF is defined, then s ⊆ DF(s) for every face s.-/
 lemma ShellingOrderSmallestFacet_bigger (r : LinearOrder K.facets) (hwf : WellFounded r.lt) (hef : ExistsFacet K) 
 (s : K.faces) : s.1 ⊆ (ShellingOrderSmallestFacet r hwf hef s).1 :=  
 WellFounded.min_mem hwf {t : K.facets | s.1 ⊆ t.1} (by match hef s with
                                                        | ⟨t, _⟩ => exists t)
 
 
+/- If the smallest facet map DF is defined, then it does send a face s to the smallest facet containing s.-/
 lemma ShellingOrderSmallestFacet_smallest (r : LinearOrder K.facets) (hwf : WellFounded r.lt) (hef : ExistsFacet K) 
 (s : K.faces) (u : K.facets) (hus : s.1 ⊆ u.1) : r.le (ShellingOrderSmallestFacet r hwf hef s) u := by 
   have hnlt := WellFounded.not_lt_min hwf {t : K.facets | s.1 ⊆ t.1} (by match hef s with
@@ -152,8 +169,6 @@ lemma ShellingOrderSmallestFacet_smallest (r : LinearOrder K.facets) (hwf : Well
 
  
 /- We now that a Noetherian shellable complex is decomposable. -/
-
-
 lemma ShellableIsDecomposable {r : LinearOrder K.facets} (hshel : IsShellingOrder r) (hef : ExistsFacet K) : 
 IsDecomposition (ShellingOrderRestriction r.toPartialOrder) (ShellingOrderSmallestFacet r hshel.1 hef) := by 
   unfold IsDecomposition 
@@ -194,9 +209,8 @@ IsDecomposition (ShellingOrderRestriction r.toPartialOrder) (ShellingOrderSmalle
     . exact Or.inr hsub 
 
 
-/- If a decomposable complex has a compatible well-order on its facets, then this order is a shelling order. Moreover, the smallest facet
-map is DF, and the restriction defines the same intervals as R.-/
-
+/- If a decomposable complex has a compatible well-order on its facets, then this order is a shelling order. Moreover (proved later
+in this file), the smallest facet map is DF, and the restriction defines the same intervals as R.-/
 lemma ShellableofDecomposable {R : K.facets → Finset α}  {DF : K.faces → K.facets} (hdec : IsDecomposition R DF)
 {r : LinearOrder K.facets} (hcomp : CompatibleOrder DF r.toPartialOrder) (hwf : WellFounded r.lt) : 
 IsShellingOrder r := by 
@@ -208,9 +222,11 @@ IsShellingOrder r := by
   . rw [←ne_eq, ←Set.nonempty_iff_ne_empty] at hof
     exact Or.inr ⟨OldFacesDecompositionIsPure hdec hcomp s, OldFacesDecompositionDimension hdec hcomp s hof⟩
 
+/- A decomposable complex satisfies condition ExistsFacet.-/
 lemma ExistsFacetofDecomposable {R : K.facets → Finset α}  {DF : K.faces → K.facets} (hdec : IsDecomposition R DF) :
 ExistsFacet K := fun s => by exists (DF s); exact Decomposition_DF_bigger_than_source hdec s 
 
+/- If a decomposable complex has a compatible well-order on its facets, then the smallest facet map of this well-order is DF.-/
 lemma ShellableofDecomposable_smallestfacet {R : K.facets → Finset α}  {DF : K.faces → K.facets} (hdec : IsDecomposition R DF)
 {r : LinearOrder K.facets} (hcomp : CompatibleOrder DF r.toPartialOrder) (hwf : WellFounded r.lt) : 
 ShellingOrderSmallestFacet r hwf (ExistsFacetofDecomposable hdec) = DF := by  
@@ -227,6 +243,8 @@ ShellingOrderSmallestFacet r hwf (ExistsFacetofDecomposable hdec) = DF := by
   exact h2 s.2 (Decomposition_DF_bigger_than_source hdec s) (ShellingOrderSmallestFacet r hwf (ExistsFacetofDecomposable hdec) s) habs 
     (ShellingOrderSmallestFacet_bigger r hwf (ExistsFacetofDecomposable hdec) s)
 
+/- If a decomposable complex has a compatible well-order on its facets, then the restriction map of this well-order
+defines the same intervals as R.-/
 lemma ShellableofDecomposable_intervals {R : K.facets → Finset α}  {DF : K.faces → K.facets} (hdec : IsDecomposition R DF)
 {r : LinearOrder K.facets} (hcomp : CompatibleOrder DF r.toPartialOrder) (hwf : WellFounded r.lt) (s : K.facets) :
 DecompositionInterval hdec s = DecompositionInterval (ShellableIsDecomposable (ShellableofDecomposable hdec hcomp hwf)
