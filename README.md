@@ -109,6 +109,14 @@ Results about Noetherian simplicial complexes (i.e. those with a Noetherian face
 - If K is Noetherian and all its facets have the same dimension, then K is pure.
 
 
+## GeneralPreorderStuff.lean
+
+Some lemmas about preoders that I could not find in mathlib.
+
+Main definitions and results:
+- Total preorders satisfy trichotomy: if s is a total preorder, then for all a,b we have a<b, b<a or a and b are equivalent for the antisymmetrization of s.
+- For a total preorder, we have \not(a \le b) if and only if b < a.
+
 ## Shellability.lean
 
 Imports Decomposability.
