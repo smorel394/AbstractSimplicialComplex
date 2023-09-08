@@ -15,6 +15,7 @@ t < s (for the order r), i.e. the faces that would have been added before s when
 
 namespace AbstractSimplicialComplex
 
+/-Definition of the subcomplex of old faces (determined by a partial order r on facets and a facet s).-/
 @[reducible] def OldFaces (r : PartialOrder K.facets) (s : K.facets) : AbstractSimplicialComplex α := 
 SubcomplexGenerated (SubcomplexGenerated K (Set.image (fun (s : K.facets) => (s.1 : Finset α)) (@Set.Iio K.facets 
 (@PartialOrder.toPreorder _ r) s))) {s.1}
@@ -45,7 +46,6 @@ r.lt u s ∧ t ⊆ u.1 := by
       exact ht.2.1
 
 /- Sanity check: the complex of old faces is included in the boundary of s.-/
-
 lemma OldFaces_included_in_boundary (r : PartialOrder K.facets) (s : K.facets) : OldFaces r s ≤ Boundary ⟨s.1, facets_subset s.2⟩ := by 
   intro t ht 
   have htof := (OldFaces_mem r s t).mp ht
@@ -63,12 +63,10 @@ lemma OldFaces_included_in_boundary (r : PartialOrder K.facets) (s : K.facets) :
 
 
 /- Corollary: the complex of old faces is finite. -/
-
 lemma OldFacesFinite (r : PartialOrder K.facets) (s : K.facets) : FiniteComplex (OldFaces r s) :=
 Finite_IsLowerSet (OldFaces_included_in_boundary r s) (BoundaryFinite ⟨s.1, facets_subset s.2⟩)
 
 /- Other corollary: if the complex of old faces is nonempty, then s has cardinality at least 2.-/
-
 lemma OldFacesNonempty_implies_not_vertex (r : PartialOrder K.facets) (s : K.facets) (hne : (OldFaces r s).faces.Nonempty) :
 2 ≤ Finset.card s.1 := by 
   match hne with 
